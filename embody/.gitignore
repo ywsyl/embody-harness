@@ -1,0 +1,10 @@
+.DS_Store
+node_modules/
+dist/
+lib/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+.venv/
+# 里程碑 0 验证用隔离 DSH_HOME（若放到仓库内）；真实 DSH_HOME 默认在 ~/.dsh
+.dsh-dev/
