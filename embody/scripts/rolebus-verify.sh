@@ -10,17 +10,17 @@
 #
 # 任一条断言失败 → 非零退出，供 CI / 手动回归使用。
 #
-# 可覆盖环境变量：ENGINE_DIR / DSH_HOME（与 rolebus-setup.sh 相同）。
+# 可覆盖环境变量：ENGINE_DIR / DSH_HOME / NODE22_BIN（与 rolebus-setup.sh 相同）。
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEFAULT_ENGINE="$(cd "$REPO_ROOT/.." && pwd)/deepseek-harness"
+DEFAULT_ENGINE="$(cd "$REPO_ROOT/.." && pwd)"   # fork 根即引擎（embody/ 的父目录）
 ENGINE_DIR="${ENGINE_DIR:-$DEFAULT_ENGINE}"
 DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
 ROLES="${ROLES:-interactor orchestrator}"
 
-NODE22_BIN="$(cd "$REPO_ROOT/.." && pwd)/.runtime/node22/bin"
+NODE22_BIN="${NODE22_BIN:-$(cd "$REPO_ROOT/../.." && pwd)/harness/.runtime/node22/bin}"
 [ -d "$NODE22_BIN" ] && export PATH="$NODE22_BIN:$PATH"
 export CI=true npm_config_verify_deps_before_run=false
 

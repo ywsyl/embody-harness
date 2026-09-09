@@ -10,14 +10,15 @@
 # 幂等：profile 已存在且 bundle 已含 rolebus 时跳过 add，只刷新 profile 层文件。
 #
 # 可覆盖环境变量：
-#   ENGINE_DIR  引擎 checkout（默认 = 本仓库父目录下的 deepseek-harness）
+#   ENGINE_DIR  引擎（默认 = 本仓库父目录，即 fork 根 projects/embody-harness）
 #   DSH_HOME    角色 profile 根（默认 $HOME/.dsh；隔离验证时传临时目录）
+#   NODE22_BIN  本机 node22 运行时 bin（默认 = 旧 harness/.runtime，可覆盖）
 # 运行配方见 ENGINE-VERSION.md / 本机 node22+CI=true。
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEFAULT_ENGINE="$(cd "$REPO_ROOT/.." && pwd)/deepseek-harness"
+DEFAULT_ENGINE="$(cd "$REPO_ROOT/.." && pwd)"   # fork 根即引擎（embody/ 的父目录）
 ENGINE_DIR="${ENGINE_DIR:-$DEFAULT_ENGINE}"
 DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
 ROLEBUS_DIR="$REPO_ROOT/dsh-plugins/rolebus"
@@ -25,7 +26,7 @@ ROLES="${ROLES:-interactor orchestrator}"
 
 # 本机配方：node22 前置到 PATH（pnpm 会解析 scripts 里的 node 为 node22），
 # CI=true 避开 lefthook 安装器，跳过 pnpm 每次跑前的 deps 检查。
-NODE22_BIN="$(cd "$REPO_ROOT/.." && pwd)/.runtime/node22/bin"
+NODE22_BIN="${NODE22_BIN:-$(cd "$REPO_ROOT/../.." && pwd)/harness/.runtime/node22/bin}"
 [ -d "$NODE22_BIN" ] && export PATH="$NODE22_BIN:$PATH"
 export CI=true npm_config_verify_deps_before_run=false
 
