@@ -1,8 +1,8 @@
 # embody-harness
 
-一套基于 [deepseek-harness（dsh）](https://github.com/deepseek-ai)（`@deepseek-ai/dsh-root`，当前 pin `0.1.3-alpha.1`）的**具身 agent 编排系统**：多个角色（agent / code）各自独立 process，通过共享事件词汇表解耦协作。
+一套基于 [deepseek-harness（dsh）](https://github.com/deepseek-ai)（引擎 = **本仓库父目录的 fork**，基线 release `0.1.5-alpha.1`，见 [ENGINE-VERSION.md](ENGINE-VERSION.md)）的**具身 agent 编排系统**：多个角色（agent / code）各自独立 dsh profile/进程，通过共享事件词汇表解耦协作。
 
-架构顶层见 [reference/项目架构.md](reference/项目架构.md)；角色间消息契约（谁→谁、何时发、payload）唯一事实源是 [reference/events.md](reference/events.md)；引擎升级纪律见 [ENGINE-VERSION.md](ENGINE-VERSION.md)。
+架构顶层见 [reference/项目架构.md](reference/项目架构.md)（§0 讲仓库形态：**开发点 = 本目录 `embody/`，引擎 = 父目录 fork 根**）；角色间消息契约（谁→谁、何时发、payload）唯一事实源是 [reference/events.md](reference/events.md)；引擎钉扎与升级纪律见 [ENGINE-VERSION.md](ENGINE-VERSION.md)。
 
 ## 目录
 
@@ -47,7 +47,7 @@ scripts/rolebus-verify.sh
 3. `rolebus.config.role == <role>`（bundle 插入的行被 profile 层整块改写）。
 
 `--dump-config` 只做行合成，不解析插件代码、不需要网络与模型 key，因此这套验证可在
-CI / 无凭据环境稳定运行。参考实现：`apps/cli/src/dump-config.ts`、`packages/boot/app-boot/src/profile.ts`。
+CI / 无凭据环境稳定运行。参考实现（引擎 fork 根下）：`../apps/cli/src/dump-config.ts`、`../packages/boot/app-boot/src/profile.ts`。
 
 ## 下一步（里程碑 1+）
 
