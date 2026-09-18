@@ -8,3 +8,13 @@ __pycache__/
 .venv/
 # 里程碑 0 验证用隔离 DSH_HOME（若放到仓库内）；真实 DSH_HOME 默认在 ~/.dsh
 .dsh-dev/
+# Python 侧运行时产物（configs/paths.py 的 ROOT_DIR 推导）：交互历史、视觉观察、
+# 任务目录等。每台机器各自生成，不入库。
+runtime_files/
+tasks/
+# 本机 shell 环境文件，内含真实 API key，永不入库（细则见 configs/.gitignore）。
+# 无斜杠的裸名在任意层级都匹配：它挪到 reference/ 之后同样拦得住。
+exp.bashrc
+
+./Communicator
+./tools

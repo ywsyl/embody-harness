@@ -1,0 +1,77 @@
+# Orchestrator（编排器）角色 profile 覆盖层 —— 本角色的唯一事实源。
+#
+# 安装脚本把它写入 $DSH_HOME/profiles/orchestrator/cordis.patch.yml。语义（与引擎一致）：
+# 这是 profile 层，位于 bundle 层（@deepseek-ai/dsh-base、@embody/dsh-rolebus、
+# @embody/dsh-tools-bridge）之后，对已插入的行按 id 整块替换 config，后面的层胜出。
+# 因此人设字段（system-prompt 只认 personaPrefix / personaSuffix，没有 persona）与
+# rolebus 身份都必须整块重写，不是逐键合并。
+#
+# 角色职责边界见 Orchestrator/orchestrator_implementation_latest.md 与 README 的事件表。
+
+# 人设文本不内联在 YAML 里，从 Orchestrator/prompts/orchestrator.md 读（与 Interactor
+# 同一做法）：
+#   - `!!js` 是 Loader 的配置表达式（见 docs/cordis-primer），在装载本行时求值一次；
+#     `getBuiltinModule` 是在 ESM 函数体里同步拿到 node 内建模块的方式（无 require）。
+#   - 路径相对引擎根（= 启动 dsh 时的工作目录）；所以必须从引擎根启动，比如
+#     scripts/role-daemon.sh。
+#   - 文件缺失即 ENOENT 启动失败（fail loud），不会静默退化成空人设。
+- id: system-prompt
+  config:
+    # 关掉引擎硬编码的 harness:identity 首句（否则它会拼在人设前面）。
+    includeHarnessIdentity: false
+    personaPrefix: !!js process.getBuiltinModule('node:fs').readFileSync('embody/Orchestrator/prompts/orchestrator.md', 'utf8').trim()
+
+- id: rolebus
+  config:
+    role: orchestrator
+    peers:
+      - interactor
+      - supervisor
+    transport: file
+
+# 自定义工具的注册方：装载时按 role 取 configs/agent_plugin.py 的 ORCHESTRATOR_TOOLS 白名单
+# （do_action / look / waypoint_nav / move），经 Python 桥逐条注册进本 profile 的工具表，
+# 调用时再经桥转发给 plugin_tools 的实现。role 与上面 rolebus 的 role 同值——两处都表示
+# 「本 profile 是哪个角色」，只是各自服务不同的能力（事件收发 / 工具注册）。
+# python 是跑桥的解释器；桥依赖 PyYAML（plugin_tools/requirements.txt）。
+- id: tools-bridge
+  config:
+    role: orchestrator
+    python: python3
+
+# 工具呈现模式：本角色的产出形态就是「程序」，所以用 PTC 模式（引擎 tools 行的 mode）。
+# PTC 下模型只看到保留的 run_code 传输工具加一份由已注册工具生成的 SDK——模型写一段
+# 程序，在里面 `await tools.<工具名>(参数)` 调工具；模型直接点名调用别的工具会被判成
+# UNKNOWN_TOOL（呈现面即可调用面）。非 native 模式要求已装配的 ctx.codeRuntime 且其语言
+# 有 SDK 渲染器，引擎里唯一的后端是 worker-thread；base bundle 不挂 code runtime，只有
+# headless / web-app 两个 shipped 组合挂了，这里照 packages/bundle/headless/cordis.patch.yml
+# 的 PTC 组合补上同一个包。
+- id: tools
+  config:
+    mode: ptc
+
+- insert:
+    - id: code-runtime
+      name: '@deepseek-ai/dsh-code-runtime-worker-thread'
+
+# 工作区指令（AGENTS.md / CLAUDE.md 等）不拼进上下文：角色人设的唯一来源是本角色
+# profile 里的人设文件，不让仓库里随手放的 AGENTS.md 混进来（见 agent-instructions 的
+# instructionFileCandidates / projectRootMarkers 走查逻辑）。
+- id: agent-instructions
+  disabled: true
+
+# 工具裁剪：只禁用**有明确角色边界理由**的行。用户的通道只有交互器，所以引擎的结构化
+# 提问（ask_user_question）用不上——要信息走 rolebus_send_interaction_request。
+# 其余工具（bash / fs / jobs / workflow / subagent 等）保持 base 默认：PTC 下它们只是
+# 生成 SDK 里的绑定，模型按程序需要取用，不占原生工具位。interactor 那份更长的裁剪清单
+# 来自它自己的角色边界，**不**照搬到编排器。
+- id: user-questions
+  disabled: true
+
+# 任务跟踪的归属是 plugin_tools/task_board.py 那份待做清单（写好落 runtime_files/
+# task_board.yaml，本角色写、交互器读），不是会话内的 todo_write —— 两者并存时模型可能把
+# 本该进待做清单的状态写进自己的 todo，两边各留一份再漂移。这一行是上面那条「保持 base
+# 默认」的唯一例外：它禁的是任务跟踪的**归属权**，不是角色用不用得上。
+# interactor 的 profile 同步禁用，理由同上。
+- id: tool-todo
+  disabled: true

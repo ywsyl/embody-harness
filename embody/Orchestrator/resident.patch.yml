@@ -1,0 +1,17 @@
+# Orchestrator 常驻待机叠加层 —— 只在「常驻启动」时经 --patch 叠加，不进 profile 层。
+#
+# 为什么单独一份文件而不是直接写进 Orchestrator/cordis.patch.yml：常驻是**启动形态**，不是
+# 角色身份（与 Interactor/resident.patch.yml 同一理由）。写进 profile 层的话，任何一次性
+# 试跑也会顺带建出一个永不唤醒的 agent。这条差异由 scripts/role-daemon.sh 用 --patch 显式表达。
+#
+# 叠加层同样是「按 id 整块替换 config」，所以 rolebus 行要整块重写：role / peers /
+# transport 必须与 Orchestrator/cordis.patch.yml 里的一致，本文件只多 resident: true。
+# 这份重复必须与 Orchestrator/cordis.patch.yml 逐字一致：叠加后的 role/peers 仍须是本角色的。
+- id: rolebus
+  config:
+    role: orchestrator
+    peers:
+      - interactor
+      - supervisor
+    transport: file
+    resident: true

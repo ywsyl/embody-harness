@@ -116,6 +116,8 @@ result.found == true ?
 ```text
 vision 是否超时
 navigation 是否卡死
+motion 控制是否卡死（关节 / 底盘位姿停滞）
+运动控制分配序是否与 Program 意图一致
 服务是否离线
 结果格式是否合法
 观测置信度是否过低
@@ -123,6 +125,8 @@ navigation 是否卡死
 工具是否需要 reconnect
 能力是否已经不可用
 ```
+
+> 边界：Supervisor 只监控运动控制的健康、卡死与分配序，并做确定性恢复；**不分配运动、不下发运动指令**——运动由 Program 中的 motion / 导航工具在 Runtime 内调用完成，Supervisor 不接管分配。
 
 例如：
 
@@ -294,7 +298,7 @@ Continue       Recover         Escalate
 
 ## 7. Runtime Monitor
 
-Runtime Monitor 负责持续监控程序执行和工具运行状态。
+Runtime Monitor 负责持续监控程序执行和工具运行状态，监控面覆盖具身两端：**感知端（视觉观察）** 与**控制端（运动控制）**。运动控制只被观察（健康、进度、分配序），Supervisor 依据观察结果做 L1 恢复，不从 Program 手里接管分配。
 
 主要监控三类信息。
 
@@ -306,6 +310,8 @@ Runtime Monitor 负责持续监控程序执行和工具运行状态。
 service alive
 camera alive
 navigation server alive
+motion controller alive
+joint / wheel controller reachable
 ROS node available
 HTTP endpoint reachable
 process running
@@ -327,11 +333,13 @@ navigation server connection refused
 ```text
 tool timeout
 navigation stuck
+motion control stuck（关节 / 底盘反馈停滞）
 process crash
 retry exceeded
 execution cancelled
 tool execution duration abnormal
 robot motion not progressing
+motion allocation order mismatch（下发顺序与 Program 意图不符）
 ```
 
 例如：
@@ -354,8 +362,10 @@ Execution Supervisor 还需要判断工具虽然“调用成功”，但结果�
 image invalid
 vision confidence too low
 sensor data stale
+motion feedback stale（关节 / 底盘反馈超时）
 expected observation missing
 localization confidence low
+control / tracking error 超出阈值
 result inconsistent with world state
 ```
 
@@ -480,7 +490,10 @@ UNKNOWN
 | Camera process exited | `CAPABILITY_UNAVAILABLE` |
 | Tool 返回非法 JSON | `INVALID_RESULT` |
 | Navigation 长时间无位移 | `EXECUTION_STUCK` |
+| Motion 控制器下发后长时间无位姿 / 关节反馈 | `EXECUTION_STUCK` |
+| 运动分配序与 Program 意图不符 | `EXECUTION_STUCK` |
 | Vision confidence 过低 | `OBSERVATION_LOW_QUALITY` |
+| Motion 反馈超时 / tracking error 超阈值 | `OBSERVATION_LOW_QUALITY` |
 | Robot pose 长时间不更新 | `LOCALIZATION_ERROR` |
 | Program 调用了不存在的 Tool | `PROGRAM_ERROR` |
 | 碰撞风险 / 急停 | `SAFETY` |
@@ -669,7 +682,14 @@ capabilities:
   tts:
     status: degraded
     last_success: 1788420005
+
+  motion:
+    status: available
+    last_success: 1788420018
+    consecutive_failures: 0
 ```
+
+能力按具身两端分别记录：`vision` 代表**感知端**（视觉观察），`motion` / `navigation` 代表**控制端**（运动控制）；motion 异常统一归入 `motion` 能力状态上报。
 
 能力状态可定义为：
 
@@ -960,6 +980,34 @@ Orchestrator
 判断是否存在替代业务方案
 ```
 
+以运动控制分配为例：
+
+```text
+Programmatic Runtime
+↓
+allocate motion（导航 / 关节运动）
+↓
+Execution Supervisor（MONITORING）
+↓
+motion allocation order mismatch
+│
+├─ 可确定性修正（按 Program 意图重排）
+│   ↓
+│   L1 本地恢复 → continue
+│
+└─ motion control stuck / feedback stale
+    ↓
+    EXECUTION_STUCK
+    ↓
+    cancel_and_retry
+    ↓
+    retry 失败
+    ↓
+    motion: degraded / unavailable
+```
+
+Supervisor 只判定并做确定性恢复，不自行重新分配运动；业务无法闭环时仍走 `replan_required`。
+
 ---
 
 ## 16. 正常业务失败与执行失败的区分
@@ -1237,13 +1285,15 @@ async def handle_error(tool_call, error):
 9. Retry Exhausted
 10. Observation Confidence Check
 11. Navigation Stuck Detection
-12. `execution_warning`
-13. `execution_error`
-14. `execution_recovered`
-15. `replan_required`
-16. 与 Interaction Agent 的异常通知接口
-17. 与 Orchestrator 的重规划触发接口
-18. 与 Programmatic Runtime 的执行结果接口
+12. Motion Controller Health / Stuck Detection
+13. Motion Allocation Order Check
+14. `execution_warning`
+15. `execution_error`
+16. `execution_recovered`
+17. `replan_required`
+18. 与 Interaction Agent 的异常通知接口
+19. 与 Orchestrator 的重规划触发接口
+20. 与 Programmatic Runtime 的执行结果接口
 
 第一阶段建议优先跑通：
 

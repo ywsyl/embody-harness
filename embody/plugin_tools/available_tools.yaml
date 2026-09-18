@@ -1,0 +1,243 @@
+# 工具清单（YAML 格式）
+# OpenAI tools 格式的所有属性统一写在 openai_schema 下
+# 自定义执行属性写在 openai_schema 同级
+# 转换逻辑需将 openai_schema 提取出来作为 OpenAI tools 格式使用
+
+tools:
+- type: function
+  function:
+    name: speak
+    description: 使用TTS服务通过扬声器进行1次语音播报（非持续），支持文本转语音并播放。
+    parameters:
+      type: object
+      properties:
+        text:
+          type: string
+          description: 要播报的文本内容
+      required:
+        - text
+      additionalProperties: false
+  extra:
+    repeatable: false
+    skill_path: skills/tts-speak/SKILL.md
+    output_format: "成功输出 `✅ 播报完成 (play_id: xxx)`，失败则输出 JSON 格式错误信息"
+
+- type: function
+  function:
+    name: listen
+    description: "语音识别（ASR）技能，主动拉起1次收音（非持续）并返回识别到的语音文本。"
+    parameters:
+      type: object
+      properties:
+        timeout:
+          type: integer
+          description: 识别超时秒数，默认10，超过则判定未识别到语音
+      required: []
+      additionalProperties: false
+  extra:
+    repeatable: false
+    skill_path: skills/asr-listener/SKILL.md
+    output_format: "成功输出 `[ASR] <识别文本>`，未识别则输出 `[ASR] 未识别到语音内容`"
+
+- type: function
+  function:
+    name: speak_listen
+    description: |
+      执行1轮"播报→收音"的语音交互：先通过TTS扬声器播报文本（speak），播报完成后随即主动收音识别用户回答（listen）。
+      适用于只需"说一句、听一句"的单轮询问/确认/收集回复场景。
+    parameters:
+      type: object
+      properties:
+        text:
+          type: string
+          description: 要播报的文本内容，播报完成后随即开始收音识别用户回答（要求简洁，50字以内）
+        listen_timeout:
+          type: integer
+          description: 收音识别超时秒数，默认10，超过则判定未识别到语音
+      required:
+        - text
+      additionalProperties: false
+  extra:
+    repeatable: false
+    output_format: "成功输出 `✅ 播报完成: ...` 与 `[ASR] <识别文本>`；未识别到语音则输出 `[ASR] 未识别到语音内容`"
+
+- type: function
+  function:
+    name: do_action
+    description: 控制机器狗执行指定的预设动作（站立、坐下、趴下、跳舞、比心、拜年等）。不适用于移动类任务（如平移、旋转等）。
+    parameters:
+      type: object
+      properties:
+        action_type:
+          type: string
+          description: |
+            动作名称，必须为以下之一：
+            - 'dance'：跳舞
+            - 'danceV2'：舞蹈2
+            - 'happy'：开心
+            - 'stretch'：伸懒腰
+            - 'standUp'：站立
+            - 'sitDown'：坐下
+            - 'getDown'：趴下
+            - 'greeting'：打招呼/握手
+            - 'fingerHeart'：比心
+            - 'newYearCall'：拜年
+            - 'leap'：扑人
+            - 'jumpForward'：前跳
+            - 'walkUpsideDown'：倒立行走
+            - 'standErect'：直立站立
+      required:
+        - action_type
+      additionalProperties: false
+  extra:
+    repeatable: false
+    skill_path: skills/robot-dog-actions/SKILL.md
+    output_format: "成功输出 `✅ 动作执行完成: ...`，无效动作或执行失败则输出 JSON 格式错误信息"
+
+- type: function
+  function:
+    name: move
+    description: |
+      控制机器狗进行移动类任务，包括：平移（前|后|左|右），旋转（左转|右转），停止。
+    parameters:
+      type: object
+      properties:
+        mode:
+          type: string
+          description: |
+            运动模式，必须为以下之一：
+            - 'forward'：前进
+            - 'backward'：后退
+            - 'left'：左移
+            - 'right'：右移
+            - 'turnleft'：左转
+            - 'turnright'：右转
+            - 'stop'：立即停止当前运动
+        value:
+          type: number
+          description: 运动量。平移类模式为距离（单位米），旋转类模式为角度（单位度）；mode='stop' 时不需要该参数。
+      required:
+        - mode
+      additionalProperties: false
+  extra:
+    repeatable: false
+    skill_path: skills/robot-dog-motion-control/SKILL.md
+    output_format: "成功输出 `✅ 移动完成: <mode> <value><单位>`，无效参数或执行失败则输出错误信息"
+
+- type: function
+  function:
+    name: look
+    description: |
+      Vision Skill 是机器人具备环境视觉理解能力的基础技能，用于根据任务需求获取视觉信息，并通过视觉模型完成场景理解、目标识别、环境分析和图片问答。
+      统一封装机器人视觉能力入口，支持两种模式：单张图片分析（image）、前方视觉感知（front）。
+      对于搜索/寻找类任务（如"找一下某人"/"我的某物在哪里"），不应使用本技能，应使用search_old或search_and_approach技能。
+    parameters:
+      type: object
+      properties:
+        mode:
+          type: string
+          description: |
+            视觉模式，必须在以下字段中选择：
+            - 'image'：对指定图片文件进行视觉理解。适用场景：判断机器人前方是否存在目标、识别人/物体/障碍物、分析当前场景
+            - 'front'：调用机器人前置摄像头获取当前视野图像，并通过视觉模型分析当前环境。适用场景：判断机器人前方是否存在目标、识别前方的人/物体/障碍物等、分析前方场景
+        image_path:
+          type: string
+          description: 传入图片路径，在 `image` 模式下必填
+        prompt:
+          type: string
+          description: 对图像或视频的分析指令或问题描述，用于指导视觉模型的处理，必须使用中文。
+      required:
+        - mode
+        - prompt
+      additionalProperties: false
+  extra:
+    repeatable: false
+    skill_path: skills/vision/SKILL.md
+
+- type: function
+  function:
+    name: search_old
+    description: |
+      原地环绕搜索（寻找目标）：机器狗通过旋转一周并拍摄周围照片、分析照片的流程，完成对当前位置周边环境的环视扫描、图像采集与目标寻找/确认。
+      适用场景：涉及“周围”“身边”“搜索”等指向环绕视角关键词的任务；前方视角不足够覆盖、需要在当前位置下进行360°搜索寻找目标的视觉任务；
+      【前方视觉感知】(vision工具) 未找到目标、需要扩大搜索范围时。
+    parameters:
+      type: object
+      properties:
+        prompt:
+          type: string
+          description: 对搜索目标（人或物）的详细外观描述或寻找指令，从视觉任务描述中推测或用户指令中提取总结得到，必须使用中文
+        interact_with_target:
+          type: boolean
+          description: |
+            搜索到目标后是否需要转向目标并与其交互，默认 true。仅当搜索结果 found=true 时生效：
+            为 true 时，若找到目标，将自动调用 turn2subject.sh（{region} {x_hirizon} if_turn=true）转向目标所在方位，
+            为后续交互做准备；未找到目标时该参数不生效。
+      required:
+        - prompt
+      additionalProperties: false
+  extra:
+    repeatable: false
+    skill_path: skills/vision/SKILL.md
+    output_format: "成功输出 JSON 对象 {\"found\": true/false, \"targets\": [{\"region\": xxx, \"x_hirizon\": xxx, \"visible_features\": xxx, \"confidence\": xxx}], \"return_message\": \"面向用户的简洁中文说明\"}，失败则输出 JSON 格式错误信息"
+
+- type: function
+  function:
+    name: search_and_approach
+    description: |
+      视觉寻物并靠近：输入目标物体的英文简单描述，在当前环境中自动搜索该物体；找到目标后能够靠近移动至目标附近。
+      适用于"找到某物体并靠近它"的寻物类任务。
+    parameters:
+      type: object
+      properties:
+        prompt:
+          type: string
+          description: 目标物体的简单描述，必须为英文（例如"red cup"/"man in red clothes"）；只描述物体本身的外观/特征，不含任何导航或移动指令
+      required:
+        - prompt
+      additionalProperties: false
+  extra:
+    repeatable: false
+    skill_path: skills/search/SKILL.md
+    output_format: "成功输出 JSON 对象 {\"found\": true/false, \"state\": \"found_and_arrived|found|found_lost|not_found|error|timeout\", \"message\": \"面向用户的简洁中文说明\"}，失败则输出 JSON 格式错误信息"
+
+- type: function
+  function:
+    name: waypoint_nav
+    description: |
+      定点导航（waypoint_nav）：预先建图并设置好地点（点位），导航时输入地点名称即可前往对应坐标点。
+      与 vision_language_nav（视觉导航，输入一段自然语言指令靠视觉逐渐靠近）不同：定点导航只认预先设置好的地点名，
+      不适用于需要自由规划路径的指令。
+    parameters:
+      type: object
+      properties:
+        target:
+          type: string
+          description: 目标位置地点名称，必须是【支持地点】的`name`字段之一。
+      required:
+        - target
+      additionalProperties: false
+  extra:
+    repeatable: false
+
+- type: function
+  function:
+    name: vision_language_nav
+    description: |
+      视觉导航/搜索目标（vision_language_nav）：接收一段自然语言导航指令，利用视觉逐渐靠近目标。可用于目标搜索和靠近
+      适用于语言指令驱动的实时机器人导航；仅用于在线导航，不适用于离线图像/视频推理。
+      用于搜索目标时，将搜索目标设置为停止标志。如“向前走然后右转（怎么走），停在xxx边上（停在哪，描述搜索对象）”
+      注意：输入的自然语言指令必须翻译为英文，必须有停止标志物。
+    parameters:
+      type: object
+      properties:
+        instruction:
+          type: string
+          description: 一条自然语言导航指令（必须翻译为英文），需要有明确的停止信号。例如 "Walk forward and stop beside the chair"
+      required:
+        - instruction
+      additionalProperties: false
+  extra:
+    repeatable: false
+    skill_path: skills/waypoint_nav/vision_language_nav.md
+    output_format: "成功输出 JSON 对象（含 status/stop/robot_pose 等字段），失败输出 JSON 格式错误信息（status=error）"

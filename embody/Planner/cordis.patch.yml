@@ -1,0 +1,85 @@
+# Planner（规划器）角色 profile 覆盖层 —— 本角色的唯一事实源。
+#
+# Planner 是 interactor + orchestrator 的**合并版**，与那两个角色**并存**而非替换：启动
+# interactor/orchestrator 走旧版，启动本角色走新版，两者不同时启动（所以看不到同一个
+# spool 上两版互相抢事件的问题；云端两条事件的 target 是单值，也只能二选一）。
+#
+# 安装脚本把它写入 $DSH_HOME/profiles/planner/cordis.patch.yml。语义（与引擎一致）：
+# 这是 profile 层，位于 bundle 层（@deepseek-ai/dsh-base、@embody/dsh-rolebus、
+# @embody/dsh-tools-bridge）之后，对已插入的行按 id 整块替换 config，后面的层胜出。
+# 因此人设字段（system-prompt 只认 personaPrefix / personaSuffix，没有 persona）与
+# rolebus 身份都必须整块重写，不是逐键合并。
+#
+# 本角色可见的原生工具面与身份边界见本文件末尾的裁剪清单；自定义工具清单是
+# configs/agent_plugin.py 的 PLANNER_TOOLS，由下方的 tools-bridge 行注册。
+
+# 人设文本不内联在 YAML 里，从 Planner/prompts/planner.md 读（与 Interactor /
+# Orchestrator 同一做法）：
+#   - `!!js` 是 Loader 的配置表达式（见 docs/cordis-primer），在装载本行时求值一次；
+#     `getBuiltinModule` 是在 ESM 函数体里同步拿到 node 内建模块的方式（无 require）。
+#   - 路径相对引擎根（= 启动 dsh 时的工作目录）；所以必须从引擎根启动，比如
+#     scripts/role-daemon.sh。
+#   - 文件缺失即 ENOENT 启动失败（fail loud），不会静默退化成空人设。
+- id: system-prompt
+  config:
+    # 关掉引擎硬编码的 harness:identity 首句（否则它会拼在人设前面）。
+    includeHarnessIdentity: false
+    personaPrefix: !!js process.getBuiltinModule('node:fs').readFileSync('embody/Planner/prompts/planner.md', 'utf8').trim()
+
+# 本角色**只收不发**：peers 只有监督器（第三方事件的源），目录里没有 `source: planner` 的
+# 条目，因此手里一个 rolebus_send_* 工具都没有。这不是配置漏项 —— 合并后交互器与编排器
+# 之间的四条交接事件没有了收发双方，「只收不发」是它的设计形态，rolebus 的装配校验因此
+# 放宽为「角色名要出现在目录里」而不是「要有发件条目」（见 dsh-plugins/rolebus/src/index.ts）。
+# 外部入站事件有四条：supervisor 的 observe_event / robot_status_update、
+# cloud 的 cloud_content_update / cloud_status_update，各有一条 planner_ 前缀的同义条目。
+- id: rolebus
+  config:
+    role: planner
+    peers:
+      - supervisor
+    transport: file
+
+# 自定义工具的注册方：装载时按 role 取 configs/agent_plugin.py 的 PLANNER_TOOLS 白名单
+# （speak / speak_listen / do_action / look / waypoint_nav / move —— 交互器与编排器两份
+# 白名单的并集），经 Python 桥逐条注册进本 profile 的工具表，调用时再经桥转发给
+# plugin_tools 的实现。role 与上面 rolebus 的 role 同值——两处都表示「本 profile 是哪个
+# 角色」，只是各自服务不同的能力（事件收发 / 工具注册）。
+# python 是跑桥的解释器；桥依赖 PyYAML（plugin_tools/requirements.txt）。
+- id: tools-bridge
+  config:
+    role: planner
+    python: python3
+
+# 工具呈现模式：本角色的产出形态就是「程序」，所以用 PTC 模式（引擎 tools 行的 mode）。
+# PTC 下模型只看到保留的 run_code 传输工具加一份由已注册工具生成的 SDK——模型写一段
+# 程序，在里面 `await tools.<工具名>(参数)` 调工具；模型直接点名调用别的工具会被判成
+# UNKNOWN_TOOL（呈现面即可调用面）。非 native 模式要求已装配的 ctx.codeRuntime 且其语言
+# 有 SDK 渲染器，引擎里唯一的后端是 worker-thread；base bundle 不挂 code runtime，只有
+# headless / web-app 两个 shipped 组合挂了，这里照 packages/bundle/headless/cordis.patch.yml
+# 的 PTC 组合补上同一个包。（本行与 Orchestrator 那份一致：合并版继承编排器的产出形态。）
+- id: tools
+  config:
+    mode: ptc
+
+- insert:
+    - id: code-runtime
+      name: '@deepseek-ai/dsh-code-runtime-worker-thread'
+
+# 工作区指令（AGENTS.md / CLAUDE.md 等）不拼进上下文：角色人设的唯一来源是本角色
+# profile 里的人设文件，不让仓库里随手放的 AGENTS.md 混进来（见 agent-instructions 的
+# instructionFileCandidates / projectRootMarkers 走查逻辑）。
+- id: agent-instructions
+  disabled: true
+
+# 工具裁剪：只禁用**有明确角色边界理由**的行。本角色与用户的通道是 speak / speak_listen
+# （人设里的语音工具），引擎的结构化提问（ask_user_question）会另开一条不播报的问答通道，
+# 两套并存时用户听到的和模型等到的对不上。interactor / orchestrator 两份旧 profile 也都
+# 禁了这一行。
+- id: user-questions
+  disabled: true
+
+# 任务跟踪的归属是 plugin_tools/task_board.py 那份待做清单（写好落 runtime_files/
+# task_board.yaml），不是会话内的 todo_write —— 两者并存时模型可能把本该进待做清单的状态
+# 写进自己的 todo，两边各留一份再漂移。两个旧角色的 profile 都禁这一行，本角色同样禁。
+- id: tool-todo
+  disabled: true

@@ -1,0 +1,20 @@
+# @embody/dsh-tools-bridge —— 自定义工具注册方的 bundle 补丁。
+#
+# 分层语义（与引擎一致）：每个 bundle 的 cordis.patch.yml 是一层；profile 自身的
+# cordis.patch.yml 在其后；按行(id)整块替换 config，后面的层胜出。因此本层只负责
+# “插入本行 + 给一份可被 profile 覆盖的中性默认值”，角色差异放在各自 profile 的覆盖层里
+# （每个已建置角色一份：Interactor/cordis.patch.yml、Orchestrator/cordis.patch.yml、
+# Planner/cordis.patch.yml）。
+#
+# config 的两项：
+#   - role   本 profile 的角色身份，与 @embody/dsh-rolebus 的 role 同值。它决定用
+#            configs/agent_plugin.py 的哪份白名单；unset 表示“尚未被 profile 赋予身份”，
+#            此时本插件不注册任何工具（也不会去起 Python 桥）。
+#   - python 跑 Python 桥的解释器（桥依赖 PyYAML，见 plugin_tools/requirements.txt）。
+
+- insert:
+    - id: tools-bridge
+      name: '@embody/dsh-tools-bridge'
+      config:
+        role: unset
+        python: python3

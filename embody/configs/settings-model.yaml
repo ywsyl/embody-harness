@@ -1,0 +1,35 @@
+# 模型覆盖模板（dsh 官方 settings 文档通道）——把 LOCAL 端点接成默认模型。
+#
+# 这不是最终的 settings.yaml：scripts/settings-seed.sh 读取 configs/exp.bashrc 的
+# LOCAL_BASE_URL / LOCAL_MODEL_ds（LOCAL_DEVICE_ID 可选，缺省 device_00123555），
+# 展开下面的 {{…}} 占位符后写入 $DSH_HOME/settings.yaml；目标文件已存在时按顶层
+# 命名空间合并（只替换 llm-pi-ai / agent-default-model，保留 ui-* 等其余段落）。
+#
+# apiKeyEnv 只写“环境变量名”LOCAL_API_KEY：真实密钥由 credentials-local 从启动环境
+# （或 $DSH_HOME/.credentials.yaml）按需解析，永不进入本文件，因此本模板可入库。
+#
+# 用 llm-pi-ai 而非 llm-deepseek 的原因：本端点是 OpenAI 兼容网关，但要求每个请求带上
+# X-Device-ID（缺则 400 device_id is required）；llm-deepseek 适配器没有自定义请求头旋钮，
+# llm-pi-ai 的 provider 支持 headers —— 与本机 ~/.dsh/settings.yaml 中现成可用的
+# robot-gateway 提供方同形。
+
+llm-pi-ai:
+  providers:
+    robot-gateway:
+      displayName: Robot Gateway
+      api: openai-completions
+      baseURL: "{{LOCAL_BASE_URL}}"
+      headers:
+        X-Device-ID: "{{LOCAL_DEVICE_ID}}"
+        X-Request-ID: "embody-model-task"
+      models:
+        - id: "{{LOCAL_MODEL_ds}}"
+          name: "{{LOCAL_MODEL_ds}}"
+          contextWindow: 1000000
+          input:
+            - text
+      apiKeyEnv: LOCAL_API_KEY
+
+agent-default-model:
+  provider: robot-gateway
+  model: "{{LOCAL_MODEL_ds}}"

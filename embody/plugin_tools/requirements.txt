@@ -1,0 +1,4 @@
+# embody/plugin_tools 的 Python 依赖。
+# 桥（bridge.py）经 `python -m plugin_tools.bridge` 被 dsh 插件拉起，
+# 需要 PATH 上该解释器已装下列依赖；解释器由 profile 行的 `python` 字段指定。
+PyYAML

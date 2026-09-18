@@ -1,0 +1,69 @@
+# Interactor（交互器）角色 profile 覆盖层 —— 本角色的唯一事实源。
+#
+# 安装脚本把它写入 $DSH_HOME/profiles/interactor/cordis.patch.yml。语义（与引擎一致）：
+# 这是 profile 层，位于 bundle 层（@deepseek-ai/dsh-base、@embody/dsh-rolebus、
+# @embody/dsh-tools-bridge）之后，对已插入的行按 id 整块替换 config，后面的层胜出。
+# 因此本行的人设字段（system-prompt 只认 personaPrefix / personaSuffix，没有 persona）
+# 与 rolebus 身份都必须整块重写，不是逐键合并。整块替换会把 @deepseek-ai/dsh-headless
+# 层写的 personaPrefix / personaSuffix 一并顶掉，要保留就只能在下面自己写上。
+#
+# 本角色可见工具清单见同目录 tools.md。要点：
+#   - 原生工具只保留清单内的行；清单外的工具行在此 disabled（见文件末尾）。
+#   - 自定义工具（清单在 configs/agent_plugin.py 的 INTERACTOR_TOOLS）由 tools-bridge 行
+#     注册，见下方说明。
+#
+# 角色职责边界见 reference/events.md 与 Interactor/interaction_agent_implementation_v2.md。
+
+# 人设文本不内联在 YAML 里，从 Interactor/prompts/interacter_prompt.md 读：
+#   - `!!js` 是 Loader 的配置表达式（见 docs/cordis-primer），在装载本行时求值一次；
+#     `getBuiltinModule` 是在 ESM 函数体里同步拿到 node 内建模块的方式（无 require）。
+#   - 路径相对引擎根（= 启动 dsh 时的工作目录）；所以必须从引擎根启动，比如
+#     scripts/interactor-daemon.sh。
+#   - 文件缺失即 ENOENT 启动失败（fail loud），不会静默退化成空人设。
+- id: system-prompt
+  config:
+    # 关掉引擎硬编码的 harness:identity 首句（否则它会拼在人设前面）。
+    includeHarnessIdentity: false
+    personaPrefix: !!js process.getBuiltinModule('node:fs').readFileSync('embody/Interactor/prompts/interacter_prompt.md', 'utf8').trim()
+
+- id: rolebus
+  config:
+    role: interactor
+    peers:
+      - orchestrator
+      - supervisor
+    transport: file
+
+# 自定义工具的注册方：装载时按 role 取 configs/agent_plugin.py 的 INTERACTOR_TOOLS 白名单
+# （speak / speak_listen），经 Python 桥逐条注册进本 profile 的工具表，调用时再经桥转发给
+# plugin_tools 的实现。role 与上面 rolebus 的 role 同值——两处都表示「本 profile 是哪个
+# 角色」，只是各自服务不同的能力（事件收发 / 工具注册）。
+# python 是跑桥的解释器；桥依赖 PyYAML（plugin_tools/requirements.txt）。
+- id: tools-bridge
+  config:
+    role: interactor
+    python: python3
+
+# 工作区指令（AGENTS.md / CLAUDE.md 等）不拼进上下文：角色人设的唯一来源是本 profile
+# 里的人设文件，不让仓库里随手放的 AGENTS.md 混进来（见 agent-instructions 的
+# instructionFileCandidates / projectRootMarkers 走查逻辑）。
+- id: agent-instructions
+  disabled: true
+
+# 原生工具：显式禁用本角色不该用（或根本用不了）的工具。
+- id: user-questions
+  disabled: true
+- id: tool-subagent
+  disabled: true
+- id: tool-subagent-fork
+  disabled: true
+- id: tool-subagent-control
+  disabled: true
+- id: tool-subagent-list-agents
+  disabled: true
+- id: tool-workflow
+  disabled: true
+- id: tool-ralph
+  disabled: true
+- id: tool-todo
+  disabled: true

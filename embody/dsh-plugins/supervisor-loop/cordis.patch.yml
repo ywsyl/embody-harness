@@ -1,0 +1,18 @@
+# @embody/dsh-supervisor-loop —— 定时观察 bundle 补丁。
+#
+# 分层语义（与引擎一致）：每个 bundle 的 cordis.patch.yml 是一层，后面各层按行(id)整块替换
+# 它的键。本层只负责「插入 supervisor-loop 行」，**值是关着的**（disabled: true）：
+#
+#   定时观察是**启动形态**，不是角色身份（与 @embody/dsh-rolebus 的 resident 同一理由）。
+#   一次性 headless 试跑若顺带起一个定时器，会每隔 n 秒往那一轮里插一条与试跑无关的观察输入；
+#   打开它的唯一地方是常驻叠加层 embody/Supervisor/resident.patch.yml（`disabled: false` +
+#   真实 config）。这一对必须一致。
+#
+# 关着的行不会被装载，因此**不打**下面那份 config 的 schema 校验；真正生效的那份在
+# Supervisor/resident.patch.yml 里（那里必须给全 intervalMs / sessionId / maxSessionBytes /
+# sources —— 四个都是 required，缺一个就在装载时报 missing required value）。
+
+- insert:
+    - id: supervisor-loop
+      name: '@embody/dsh-supervisor-loop'
+      disabled: true

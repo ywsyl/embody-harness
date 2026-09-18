@@ -1,0 +1,28 @@
+{
+  // tools-bridge 与 @embody/dsh-rolebus 同形：引擎图外的叶子项目，引擎依赖
+  // （@deepseek-ai/cordis、schemastery、dsh-tools、dsh-llm）经 tsconfig.base.json 的
+  // `paths` 解析到各包 src，本文件用 `references` 声明这些 src 归属的编译项目。
+  // `tsc -b` 的叶子必须 composite；产物 lib/（本包 Loader boot 前用）被 .gitignore 忽略。
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "../../../vendor/cordis"
+    },
+    {
+      "path": "../../../vendor/schemastery"
+    },
+    {
+      "path": "../../../packages/core/tools"
+    },
+    {
+      "path": "../../../packages/llm/llm"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+# exp.bashrc 是个人 shell 环境文件，内含真实 API key（LOCAL_API_KEY、MINIMAX/ZHIPUAI/QWEN 等），
+# 只在本机使用，永不入库。
+exp.bashrc
+
+# 由 exp.bashrc 派生的任何本地凭据留存也不入库（密钥只走进程环境或 $DSH_HOME/.credentials.yaml）。
+*.secret
+.credentials.yaml
+.env.local
