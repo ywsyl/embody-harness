@@ -2,7 +2,7 @@
   "name": "@embody/dsh-supervisor-loop",
   "version": "0.1.0",
   "private": true,
-  "description": "embody-harness 监督器的定时观察循环：每隔 n 秒读一次观察 yaml（视觉观察 / 本体状态），拼成一轮模型输入交给本角色 agent，由它判断要不要发 rolebus 事件。",
+  "description": "embody-harness 监督器的定时观察循环：每隔 n 秒读一次观察 yaml（本部署三份：视觉观察 / 本体状态 / 运动状态），拼成一轮模型输入交给本角色 agent，由它判断要不要发 rolebus 事件。",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

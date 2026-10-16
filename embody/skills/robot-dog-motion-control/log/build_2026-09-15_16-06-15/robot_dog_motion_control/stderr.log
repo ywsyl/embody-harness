@@ -1,0 +1,10 @@
+/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp: In constructor ‘TwistControllerSocketServer::TwistControllerSocketServer()’:
+/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:477:12: warning: ‘TwistControllerSocketServer::elapsed_time_’ will be initialized after [-Wreorder]
+  477 |     double elapsed_time_;
+      |            ^~~~~~~~~~~~~
+/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:468:9: warning:   ‘int TwistControllerSocketServer::server_fd_’ [-Wreorder]
+  468 |     int server_fd_;
+      |         ^~~~~~~~~~
+/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:39:5: warning:   when initialized here [-Wreorder]
+   39 |     TwistControllerSocketServer()
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~~~

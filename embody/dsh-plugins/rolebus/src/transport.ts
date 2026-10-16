@@ -17,9 +17,11 @@ import { join } from 'node:path'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import {
   EVENT_TYPE_PATTERN,
+  PRIORITIES,
   REQUIRED_HEADER_FIELDS,
   SEVERITIES,
   UNSET_ROLE,
+  type Priority,
   type RoleBusEnvelope,
   type RoleName,
   type Severity,
@@ -73,6 +75,8 @@ export interface PostOptions {
   correlation_id?: string | null | undefined
   /** 信封头字段：仅面向用户事件。 */
   severity?: Severity | undefined
+  /** 信封头字段：本封事件选定的优先级；缺省或 null 即由收件侧按目录条目的固定值决定。 */
+  priority?: Priority | null | undefined
   /** 领域负载，rolebus 透明透传。 */
   payload?: Record<string, unknown> | undefined
 }
@@ -110,7 +114,10 @@ export function validateEnvelope(raw: unknown): RoleBusEnvelope {
   if (value['severity'] !== undefined && !(SEVERITIES as readonly string[]).includes(value['severity'] as string)) {
     throw new Error(`rolebus: severity must be one of ${SEVERITIES.join('/')}, got ${JSON.stringify(value['severity'])}`)
   }
-  for (const field of ['task_id', 'program_id', 'correlation_id'] as const) {
+  // priority 只查类型、不查是否 ∈ PRIORITIES（与上面的 severity 不同）：取值不认识时收件侧
+  // 回落目录条目的固定值（event-catalog.ts 的 priorityFor），而抛错会把整封事件判成非法
+  // （deliver 侧重命名 .bad- 后丢弃）——唤醒强度只是投递提示，不该拿一封已投递的事件去换。
+  for (const field of ['task_id', 'program_id', 'correlation_id', 'priority'] as const) {
     if (value[field] !== undefined && typeof value[field] !== 'string' && value[field] !== null) {
       throw new Error(`rolebus: ${field} must be a string or null, got ${JSON.stringify(value[field])}`)
     }
@@ -135,6 +142,7 @@ function toEnvelope(options: PostOptions): RoleBusEnvelope {
   if (options.program_id !== undefined) envelope.program_id = options.program_id
   if (options.correlation_id !== undefined) envelope.correlation_id = options.correlation_id
   if (options.severity !== undefined) envelope.severity = options.severity
+  if (options.priority !== undefined) envelope.priority = options.priority
   if (options.payload !== undefined) envelope.payload = options.payload
   return envelope
 }
@@ -162,6 +170,11 @@ export async function post(options: PostOptions): Promise<RoleBusEnvelope> {
   }
   if (options.severity !== undefined && !(SEVERITIES as readonly string[]).includes(options.severity)) {
     throw new Error(`rolebus: severity must be one of ${SEVERITIES.join('/')}, got ${JSON.stringify(options.severity)}`)
+  }
+  // 发件侧对 priority 是严格的（收件侧只查类型，理由见 validateEnvelope）：写错在这里当场报，
+  // 而不是让它过 wire 后靠收件侧回落掩盖。
+  if (options.priority !== undefined && options.priority !== null && !(PRIORITIES as readonly string[]).includes(options.priority)) {
+    throw new Error(`rolebus: priority must be one of ${PRIORITIES.join('/')}, got ${JSON.stringify(options.priority)}`)
   }
   const envelope = validateEnvelope(toEnvelope(options))
   const dir = inboxDir(options.root, options.target)

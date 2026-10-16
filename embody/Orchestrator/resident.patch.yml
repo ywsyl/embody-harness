@@ -7,11 +7,22 @@
 # 叠加层同样是「按 id 整块替换 config」，所以 rolebus 行要整块重写：role / peers /
 # transport 必须与 Orchestrator/cordis.patch.yml 里的一致，本文件只多 resident: true。
 # 这份重复必须与 Orchestrator/cordis.patch.yml 逐字一致：叠加后的 role/peers 仍须是本角色的。
+#
+# 本角色没有 startupWake：开机自查（看清单里有没有该问用户的任务）整件事都在交互器开机那一轮
+# 里——它读整份清单、不看 owner，问完用户才把归本角色的那条发过来（见 Interactor/prompts/ 的
+# 【开机自查】）。所以本角色与其余角色一样「启动不跑模型」，起来直接待机：第一轮模型请求来自
+# 一条事件，通常是交互器在用户挑中本角色任务后发来的 task_update_int。
 - id: rolebus
   config:
     role: orchestrator
     peers:
       - interactor
-      - supervisor
     transport: file
     resident: true
+    # 思考模式：值来自 configs/agents.py 的 ROLE_THINKING（经 role-daemon.sh 过桥成进程环境）。
+    # 非空 = 本角色改走那条声明了推理档位的镜像路由，而"不选档位"在线上就是 thinking 的关闭值
+    # （见 configs/settings-model.yaml 的 robot-gateway-nothink）；空串 = 不改路由，照走
+    # agent-default-model 的 robot-gateway，请求体一字不改、思考开着。
+    # `?? ''` 防的是手工 `pnpm dsh --profile … --patch …` 绕过 role-daemon 时取不到这个变量
+    # （同 ORCHESTRATOR_TASK_LIST_PATH 那条已接受的性质）：那种跑法下思考回到默认，不影响常驻启动。
+    modelProvider: !!js (process.env.ROLE_MODEL_PROVIDER ?? '')

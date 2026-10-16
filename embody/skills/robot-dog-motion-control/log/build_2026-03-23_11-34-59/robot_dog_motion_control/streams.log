@@ -1,0 +1,68 @@
+[0.028s] Invoking command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/foxy /usr/bin/cmake --build /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control -- -j8 -l8
+[0.073s] -- Found ament_cmake: 0.9.12 (/opt/ros/foxy/share/ament_cmake/cmake)
+[0.112s] -- Using PYTHON_EXECUTABLE: /usr/bin/python3
+[0.375s] -- Found rclcpp: 2.4.3 (/opt/ros/foxy/share/rclcpp/cmake)
+[0.420s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[0.425s] -- Found rosidl_adapter: 1.3.1 (/opt/ros/foxy/share/rosidl_adapter/cmake)
+[0.626s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[0.694s] -- Found rmw_implementation_cmake: 1.0.4 (/opt/ros/foxy/share/rmw_implementation_cmake/cmake)
+[0.697s] -- Using RMW implementation 'rmw_cyclonedds_cpp' as default
+[0.900s] -- Found geometry_msgs: 2.0.5 (/opt/ros/foxy/share/geometry_msgs/cmake)
+[0.948s] -- Found ament_lint_auto: 0.9.8 (/opt/ros/foxy/share/ament_lint_auto/cmake)
+[1.097s] -- Added test 'copyright' to check source files copyright and LICENSE
+[1.107s] -- Added test 'cppcheck' to perform static code analysis on C / C++ code
+[1.108s] -- Configured cppcheck include dirs: 
+[1.108s] -- Configured cppcheck exclude dirs and/or files: 
+[1.119s] -- Added test 'cpplint' to check C / C++ code against the Google style
+[1.120s] -- Configured cpplint exclude dirs and/or files: 
+[1.120s] -- Added test 'flake8' to check Python code syntax and style conventions
+[1.124s] -- Added test 'lint_cmake' to check CMake code style
+[1.125s] -- Added test 'pep257' to check Python code against some of the style conventions in PEP 257
+[1.136s] -- Added test 'uncrustify' to check C / C++ code style
+[1.137s] -- Configured uncrustify additional arguments: 
+[1.138s] -- Added test 'xmllint' to check XML markup files
+[1.142s] -- Configuring done
+[1.155s] -- Generating done
+[1.162s] -- Build files have been written to: /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control
+[1.229s] [35m[1mScanning dependencies of target client[0m
+[1.254s] [ 25%] [32mBuilding CXX object CMakeFiles/client.dir/src/client.cpp.o[0m
+[1.746s] [ 50%] [32m[1mLinking CXX executable client[0m
+[1.899s] [ 50%] Built target client
+[1.936s] [35m[1mScanning dependencies of target server[0m
+[1.998s] [ 75%] [32mBuilding CXX object CMakeFiles/server.dir/src/server.cpp.o[0m
+[4.207s] [01m[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:[m[K In constructor ‘[01m[KTwistControllerSocketServer::TwistControllerSocketServer()[m[K’:
+[4.208s] [01m[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:310:12:[m[K [01;35m[Kwarning: [m[K‘[01m[KTwistControllerSocketServer::elapsed_time_[m[K’ will be initialized after [[01;35m[K-Wreorder[m[K]
+[4.208s]   310 |     double [01;35m[Kelapsed_time_[m[K;
+[4.209s]       |            [01;35m[K^~~~~~~~~~~~~[m[K
+[4.209s] [01m[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:302:9:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kint TwistControllerSocketServer::server_fd_[m[K’ [[01;35m[K-Wreorder[m[K]
+[4.210s]   302 |     int [01;35m[Kserver_fd_[m[K;
+[4.210s]       |         [01;35m[K^~~~~~~~~~[m[K
+[4.210s] [01m[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:27:5:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K-Wreorder[m[K]
+[4.211s]    27 |     [01;35m[KTwistControllerSocketServer[m[K()
+[4.211s]       |     [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[7.139s] [100%] [32m[1mLinking CXX executable server[0m
+[7.445s] [100%] Built target server
+[7.464s] Invoked command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/foxy /usr/bin/cmake --build /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control -- -j8 -l8
+[7.487s] Invoking command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/foxy /usr/bin/cmake --install /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control
+[7.506s] -- Install configuration: ""
+[7.516s] -- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/server
+[7.517s] -- Set runtime path of "/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/server" to ""
+[7.517s] -- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/client
+[7.517s] -- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/scripts/start.sh
+[7.518s] -- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/scripts/motion.sh
+[7.519s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/ament_index/resource_index/package_run_dependencies/robot_dog_motion_control
+[7.519s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/ament_index/resource_index/parent_prefix_path/robot_dog_motion_control
+[7.520s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/ament_prefix_path.sh
+[7.520s] -- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/ament_prefix_path.dsv
+[7.521s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/path.sh
+[7.522s] -- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/path.dsv
+[7.522s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.bash
+[7.523s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.sh
+[7.524s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.zsh
+[7.524s] -- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.dsv
+[7.524s] -- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.dsv
+[7.525s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/ament_index/resource_index/packages/robot_dog_motion_control
+[7.525s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/cmake/robot_dog_motion_controlConfig.cmake
+[7.526s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/cmake/robot_dog_motion_controlConfig-version.cmake
+[7.526s] -- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.xml
+[7.528s] Invoked command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/foxy /usr/bin/cmake --install /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control

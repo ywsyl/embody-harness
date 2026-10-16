@@ -13,8 +13,8 @@ if str(_ROOT) not in sys.path:
 
 import yaml
 
-from configs.agent_plugin import role_tools
-from configs.paths import AVAILABLE_TOOLS_FILE
+from configs.agents import role_tools
+from configs.paths import AVAILABLE_TOOLS_CLOUD_FILE, AVAILABLE_TOOLS_FILE
 
 from plugin_tools.tool_executor import ToolExecutor, waypoint_nav_supported_targets
 
@@ -35,6 +35,22 @@ def _load_tool_entries(yaml_path: Optional[Path] = None) -> List[Dict[str, Any]]
     return data.get("tools", []) if isinstance(data, dict) else []
 
 
+def load_tool_names(yaml_path: Optional[Path] = None) -> List[str]:
+    """读取 available_tools.yaml，返回清单里全部工具名（顺序即文件顺序）。
+
+    给**清单之外**的消费者用：凡是「这个工具是不是自定义工具」的判断，都以这一份为准
+    （如 scripts/role-watch.sh 拿它分开「结果原样进记录」与「只报成不成」两批）。
+
+    Args:
+        yaml_path: 工具清单路径，缺省 AVAILABLE_TOOLS_FILE。
+
+    Returns:
+        工具名列表。**读不到或格式不对时是空表**（解析规则见 _load_tool_entries，
+        它出错只出声不抛）——调用方要把空表当失败处理，别当成「清单是空的」。
+    """
+    return [entry["function"]["name"] for entry in _load_tool_entries(yaml_path)]
+
+
 def load_role_entries(
     role: str,
     yaml_path: Optional[Path] = None,
@@ -45,14 +61,14 @@ def load_role_entries(
     Python 侧的 prompt 文本拼接都从这里取，过滤规则只写一份。
 
     Args:
-        role:      角色身份，决定用 configs.agent_plugin 的哪份白名单。
+        role:      角色身份，决定用 configs.agents 的哪份白名单。
         yaml_path: 工具清单路径，缺省 AVAILABLE_TOOLS_FILE。
 
     Returns:
         过滤后的 yaml 条目列表。
 
     Raises:
-        UnknownRoleError: 角色不在 configs.agent_plugin 的 ROLE_TOOLS 里。
+        UnknownRoleError: 角色不在 configs.agents 的 ROLE_TOOLS 里。
     """
     wanted = role_tools(role)
     by_name = {
@@ -68,6 +84,22 @@ def load_role_entries(
             file=sys.stderr,
         )
     return [by_name[name] for name in wanted if name in by_name]
+
+
+def load_cloud_entries() -> List[Dict[str, Any]]:
+    """读取 available_tools_cloud.yaml，返回它的全部条目（**不做角色过滤**）。
+
+    云端点名执行（Communicator/receiver.py 的 `exe` 事件）认的工具集：那条腿不经过角色系统，
+    也就没有角色白名单可过——**那份清单本身就是白名单**。与 `load_role_entries` 是两条互不
+    影响的取法：那份再按 configs.agents 的白名单滤一遍，这份只认文件里写了什么（要加一个能
+    被云端点名的工具，改那份 yaml 就够了，不用动代码）。
+
+    加载规则与 `_load_tool_entries` 同一份（读不到只有出声、返回空表）。
+
+    Returns:
+        该清单的全部 yaml 条目。空表意味着**没读进来**，调用方要把空表当失败处理。
+    """
+    return _load_tool_entries(AVAILABLE_TOOLS_CLOUD_FILE)
 
 
 def _build_tools_text(tools: List[Dict[str, Any]]) -> str:
@@ -142,7 +174,7 @@ class ToolParser:
         _executor    — ToolExecutor 实例，负责执行器注册与 tool_calls 执行
 
     Args:
-        role:      角色身份，决定用 configs.agent_plugin 的哪份白名单
+        role:      角色身份，决定用 configs.agents 的哪份白名单
         yaml_path: 工具清单 YAML 路径，默认 AVAILABLE_TOOLS_FILE
     """
 

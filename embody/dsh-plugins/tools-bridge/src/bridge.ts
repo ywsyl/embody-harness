@@ -2,7 +2,7 @@
  * 自定义工具的 Python 调用通道：取工具定义、执行一次调用。
  *
  * 工具「有哪些、参数长什么样」的事实源有两份，都在 Python 侧：
- * `embody/plugin_tools/available_tools.yaml`（定义）与 `embody/configs/agent_plugin.py`
+ * `embody/plugin_tools/available_tools.yaml`（定义）与 `embody/configs/agents.py`
  * 的 `ROLE_TOOLS`（角色白名单）。本模块不复制它们，只经 stdio 桥
  * `python -m plugin_tools.bridge` 取回与转发；桥的两条子命令与返回格式见
  * `embody/plugin_tools/bridge.py` 的模块文档。
@@ -76,7 +76,9 @@ function runBridge(options: BridgeOptions, args: readonly string[], stdin?: stri
     const stdout: Buffer[] = []
     const stderr: Buffer[] = []
     child.stdout.on('data', (chunk: Buffer) => stdout.push(chunk))
-    child.stderr.on('data', (chunk: Buffer) => stderr.push(chunk))
+    // 桥把工具里（及其库）的 print 拨到了 stderr 以保住 stdout 的协议，那些行仍是有用的
+    // 运行信息（云端上报回执、警告）；收集之外原样透传，随 resident 进程的日志落盘。
+    child.stderr.on('data', (chunk: Buffer) => { stderr.push(chunk); process.stderr.write(chunk) })
 
     const onAbort = (): void => { child.kill() }
     if (signal !== undefined) {

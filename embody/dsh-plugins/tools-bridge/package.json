@@ -2,7 +2,7 @@
   "name": "@embody/dsh-tools-bridge",
   "version": "0.1.0",
   "private": true,
-  "description": "embody-harness 自定义工具的注册方：按 profile 的角色读 configs/agent_plugin.py 的白名单，经 stdio 桥把 plugin_tools 里的 Python 工具注册进 dsh 的工具表。",
+  "description": "embody-harness 自定义工具的注册方：按 profile 的角色读 configs/agents.py 的白名单，经 stdio 桥把 plugin_tools 里的 Python 工具注册进 dsh 的工具表。",
   "type": "module",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

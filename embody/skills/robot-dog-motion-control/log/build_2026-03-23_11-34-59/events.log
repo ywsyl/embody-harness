@@ -1,0 +1,151 @@
+[0.000000] (-) TimerEvent: {}
+[0.000722] (robot_dog_motion_control) JobQueued: {'identifier': 'robot_dog_motion_control', 'dependencies': OrderedDict()}
+[0.001108] (robot_dog_motion_control) JobStarted: {'identifier': 'robot_dog_motion_control'}
+[0.019679] (robot_dog_motion_control) JobProgress: {'identifier': 'robot_dog_motion_control', 'progress': 'cmake'}
+[0.021499] (robot_dog_motion_control) JobProgress: {'identifier': 'robot_dog_motion_control', 'progress': 'build'}
+[0.022655] (robot_dog_motion_control) Command: {'cmd': ['/usr/bin/cmake', '--build', '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control', '--', '-j8', '-l8'], 'cwd': '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control', 'env': OrderedDict([('LESSOPEN', '| /usr/bin/lesspipe %s'), ('USER', 'root'), ('SSH_CLIENT', '192.168.123.116 52069 22'), ('XDG_SESSION_TYPE', 'tty'), ('GIT_ASKPASS', '/root/.vscode-server/cli/servers/Stable-994fd12f8d3a5aa16f17d42c041e5809167e845a/server/extensions/git/dist/askpass.sh'), ('FZF_DEFAULT_OPTS', "--height 40% --layout=reverse --preview '(highlight -O ansi {} || cat {}) 2> /dev/null | head -500'"), ('SHLVL', '2'), ('LD_LIBRARY_PATH', '/root/.x-cmd.root/local/data/pkg/sphere/X/l/j/h/lib:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_hg/lib:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_go/lib:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_api/lib:/opt/ros/unitree_ros2/cyclonedds_ws/install/rmw_cyclonedds_cpp/lib:/opt/ros/unitree_ros2/cyclonedds_ws/install/cyclonedds/lib:/opt/ros/foxy/opt/yaml_cpp_vendor/lib:/opt/ros/foxy/opt/rviz_ogre_vendor/lib:/opt/ros/foxy/lib/aarch64-linux-gnu:/opt/ros/foxy/lib'), ('BROWSER', '/root/.vscode-server/cli/servers/Stable-994fd12f8d3a5aa16f17d42c041e5809167e845a/server/bin/helpers/browser.sh'), ('LESS', '-R'), ('MOTD_SHOWN', 'pam'), ('HOME', '/root'), ('CYCLONEDDS_URI', '<CycloneDDS><Domain><General><Interfaces>\n                            <NetworkInterface name="eth0" priority="default" multicast="default" />\n                        </Interfaces><AllowMulticast>spdp</AllowMulticast></General></Domain></CycloneDDS>'), ('OLDPWD', '/root/cmcc_agent/skills'), ('TERM_PROGRAM_VERSION', '1.107.1'), ('___X_CMD_LOG_C_TF', ''), ('VSCODE_IPC_HOOK_CLI', '/run/user/0/vscode-ipc-c56c2733-b77e-4044-9472-e1537f73eeec.sock'), ('LSCOLORS', 'Gxfxcxdxbxegedabagacad'), ('ZSH', '/root/.oh-my-zsh'), ('ROS_PYTHON_VERSION', '3'), ('PAGER', 'less'), ('VSCODE_GIT_ASKPASS_MAIN', '/root/.vscode-server/cli/servers/Stable-994fd12f8d3a5aa16f17d42c041e5809167e845a/server/extensions/git/dist/askpass-main.js'), ('___X_CMD_LOG_C_WARN', '\\033[1;33m'), ('VSCODE_GIT_ASKPASS_NODE', '/root/.vscode-server/cli/servers/Stable-994fd12f8d3a5aa16f17d42c041e5809167e845a/server/node'), ('SSL_CERT_FILE', '/usr/lib/ssl/certs/ca-certificates.crt'), ('VSCODE_PYTHON_AUTOACTIVATE_GUARD', '1'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/0/bus'), ('COLORTERM', 'truecolor'), ('___X_CMD_LOG_C_ERROR', '\\033[1;31m'), ('COLCON_PREFIX_PATH', '/opt/ros/unitree_ros2/cyclonedds_ws/install'), ('ROS_DISTRO', 'foxy'), ('GTK_IM_MODULE', 'fcitx'), ('LOGNAME', 'root'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('USER_ZDOTDIR', '/root'), ('PKG_CONFIG_PATH', '/opt/ros/unitree_ros2/cyclonedds_ws/install/cyclonedds/lib/aarch64-linux-gnu/pkgconfig:/opt/ros/unitree_ros2/cyclonedds_ws/install/cyclonedds/lib/pkgconfig'), ('___X_CMD_LOG_C_DEBUG', '\\033[2;35m'), ('CLAUDE_CODE_SSE_PORT', '41058'), ('XDG_SESSION_CLASS', 'user'), ('TERM', 'xterm-256color'), ('XDG_SESSION_ID', '8'), ('AUTOJUMP_ERROR_PATH', '/root/.local/share/autojump/errors.log'), ('BASH_SILENCE_DEPRECATION_WARNING', '1'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/root/.x-cmd.root/local/data/pkg/sphere/X/l/j/h/bin:/root/.x-cmd.root/bin:/home/debian/anaconda3/bin:/root/.vscode-server/data/User/globalStorage/github.copilot-chat/debugCommand:/root/.vscode-server/data/User/globalStorage/github.copilot-chat/copilotCli:/root/.vscode-server/cli/servers/Stable-994fd12f8d3a5aa16f17d42c041e5809167e845a/server/bin/remote-cli:/root/.local/bin:/opt/ros/unitree_ros2/cyclonedds_ws/install/cyclonedds/bin:/opt/ros/foxy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/root/.x-cmd.root/local/data/triarii/bin:/usr/local/go/bin'), ('XDG_RUNTIME_DIR', '/run/user/0'), ('SSL_CERT_DIR', '/usr/lib/ssl/certs'), ('VSCODE_INJECTION', '1'), ('LANG', 'en_US.UTF-8'), ('RMW_IMPLEMENTATION', 'rmw_cyclonedds_cpp'), ('XMODIFIERS', '@im=fcitx'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('VSCODE_GIT_IPC_HANDLE', '/run/user/0/vscode-git-14d245343a.sock'), ('TERM_PROGRAM', 'vscode'), ('AMENT_PREFIX_PATH', '/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_hg:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_go:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_api:/opt/ros/unitree_ros2/cyclonedds_ws/install/rmw_cyclonedds_cpp:/opt/ros/foxy'), ('SHELL', '/usr/bin/bash'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('VSCODE_GIT_ASKPASS_EXTRA_ARGS', ''), ('QT_IM_MODULE', 'fcitx'), ('PWD', '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control'), ('FZF_DEFAULT_COMMAND', 'fd --exclude={.git,.idea,.sass-cache,node_modules,build} --type f'), ('LC_ALL', 'en_US.UTF-8'), ('SSH_CONNECTION', '192.168.123.116 52069 192.168.123.99 22'), ('ZDOTDIR', '/root'), ('PYTHONPATH', '/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_hg/lib/python3.8/site-packages:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_go/lib/python3.8/site-packages:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_api/lib/python3.8/site-packages:/opt/ros/foxy/lib/python3.8/site-packages'), ('AUTOJUMP_SOURCED', '1'), ('___X_CMD_LOG_C_INFO', '\\033[32m'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_hg:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_go:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_api:/opt/ros/unitree_ros2/cyclonedds_ws/install/rmw_cyclonedds_cpp:/opt/ros/unitree_ros2/cyclonedds_ws/install/cyclonedds:/opt/ros/foxy'), ('AMENT_CURRENT_PREFIX', '/opt/ros/foxy')]), 'shell': False}
+[0.074076] (robot_dog_motion_control) StdoutLine: {'line': b'-- Found ament_cmake: 0.9.12 (/opt/ros/foxy/share/ament_cmake/cmake)\n'}
+[0.099685] (-) TimerEvent: {}
+[0.113135] (robot_dog_motion_control) StdoutLine: {'line': b'-- Using PYTHON_EXECUTABLE: /usr/bin/python3\n'}
+[0.201289] (-) TimerEvent: {}
+[0.301683] (-) TimerEvent: {}
+[0.376637] (robot_dog_motion_control) StdoutLine: {'line': b'-- Found rclcpp: 2.4.3 (/opt/ros/foxy/share/rclcpp/cmake)\n'}
+[0.401816] (-) TimerEvent: {}
+[0.421494] (robot_dog_motion_control) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c\n'}
+[0.425832] (robot_dog_motion_control) StdoutLine: {'line': b'-- Found rosidl_adapter: 1.3.1 (/opt/ros/foxy/share/rosidl_adapter/cmake)\n'}
+[0.501973] (-) TimerEvent: {}
+[0.602564] (-) TimerEvent: {}
+[0.626685] (robot_dog_motion_control) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp\n'}
+[0.695356] (robot_dog_motion_control) StdoutLine: {'line': b'-- Found rmw_implementation_cmake: 1.0.4 (/opt/ros/foxy/share/rmw_implementation_cmake/cmake)\n'}
+[0.697668] (robot_dog_motion_control) StdoutLine: {'line': b"-- Using RMW implementation 'rmw_cyclonedds_cpp' as default\n"}
+[0.702693] (-) TimerEvent: {}
+[0.803281] (-) TimerEvent: {}
+[0.901032] (robot_dog_motion_control) StdoutLine: {'line': b'-- Found geometry_msgs: 2.0.5 (/opt/ros/foxy/share/geometry_msgs/cmake)\n'}
+[0.903403] (-) TimerEvent: {}
+[0.948798] (robot_dog_motion_control) StdoutLine: {'line': b'-- Found ament_lint_auto: 0.9.8 (/opt/ros/foxy/share/ament_lint_auto/cmake)\n'}
+[1.003596] (-) TimerEvent: {}
+[1.098098] (robot_dog_motion_control) StdoutLine: {'line': b"-- Added test 'copyright' to check source files copyright and LICENSE\n"}
+[1.103743] (-) TimerEvent: {}
+[1.108704] (robot_dog_motion_control) StdoutLine: {'line': b"-- Added test 'cppcheck' to perform static code analysis on C / C++ code\n"}
+[1.109106] (robot_dog_motion_control) StdoutLine: {'line': b'-- Configured cppcheck include dirs: \n'}
+[1.109525] (robot_dog_motion_control) StdoutLine: {'line': b'-- Configured cppcheck exclude dirs and/or files: \n'}
+[1.119997] (robot_dog_motion_control) StdoutLine: {'line': b"-- Added test 'cpplint' to check C / C++ code against the Google style\n"}
+[1.120740] (robot_dog_motion_control) StdoutLine: {'line': b'-- Configured cpplint exclude dirs and/or files: \n'}
+[1.121665] (robot_dog_motion_control) StdoutLine: {'line': b"-- Added test 'flake8' to check Python code syntax and style conventions\n"}
+[1.124837] (robot_dog_motion_control) StdoutLine: {'line': b"-- Added test 'lint_cmake' to check CMake code style\n"}
+[1.126568] (robot_dog_motion_control) StdoutLine: {'line': b"-- Added test 'pep257' to check Python code against some of the style conventions in PEP 257\n"}
+[1.137431] (robot_dog_motion_control) StdoutLine: {'line': b"-- Added test 'uncrustify' to check C / C++ code style\n"}
+[1.138143] (robot_dog_motion_control) StdoutLine: {'line': b'-- Configured uncrustify additional arguments: \n'}
+[1.139120] (robot_dog_motion_control) StdoutLine: {'line': b"-- Added test 'xmllint' to check XML markup files\n"}
+[1.142770] (robot_dog_motion_control) StdoutLine: {'line': b'-- Configuring done\n'}
+[1.156247] (robot_dog_motion_control) StdoutLine: {'line': b'-- Generating done\n'}
+[1.162787] (robot_dog_motion_control) StdoutLine: {'line': b'-- Build files have been written to: /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control\n'}
+[1.203893] (-) TimerEvent: {}
+[1.230108] (robot_dog_motion_control) StdoutLine: {'line': b'\x1b[35m\x1b[1mScanning dependencies of target client\x1b[0m\n'}
+[1.255530] (robot_dog_motion_control) StdoutLine: {'line': b'[ 25%] \x1b[32mBuilding CXX object CMakeFiles/client.dir/src/client.cpp.o\x1b[0m\n'}
+[1.304118] (-) TimerEvent: {}
+[1.404857] (-) TimerEvent: {}
+[1.505400] (-) TimerEvent: {}
+[1.605816] (-) TimerEvent: {}
+[1.706218] (-) TimerEvent: {}
+[1.747725] (robot_dog_motion_control) StdoutLine: {'line': b'[ 50%] \x1b[32m\x1b[1mLinking CXX executable client\x1b[0m\n'}
+[1.806413] (-) TimerEvent: {}
+[1.899963] (robot_dog_motion_control) StdoutLine: {'line': b'[ 50%] Built target client\n'}
+[1.906676] (-) TimerEvent: {}
+[1.936839] (robot_dog_motion_control) StdoutLine: {'line': b'\x1b[35m\x1b[1mScanning dependencies of target server\x1b[0m\n'}
+[1.999114] (robot_dog_motion_control) StdoutLine: {'line': b'[ 75%] \x1b[32mBuilding CXX object CMakeFiles/server.dir/src/server.cpp.o\x1b[0m\n'}
+[2.006848] (-) TimerEvent: {}
+[2.107734] (-) TimerEvent: {}
+[2.208493] (-) TimerEvent: {}
+[2.308920] (-) TimerEvent: {}
+[2.409414] (-) TimerEvent: {}
+[2.510240] (-) TimerEvent: {}
+[2.611272] (-) TimerEvent: {}
+[2.711908] (-) TimerEvent: {}
+[2.812940] (-) TimerEvent: {}
+[2.913653] (-) TimerEvent: {}
+[3.014171] (-) TimerEvent: {}
+[3.114692] (-) TimerEvent: {}
+[3.215554] (-) TimerEvent: {}
+[3.316270] (-) TimerEvent: {}
+[3.417258] (-) TimerEvent: {}
+[3.518143] (-) TimerEvent: {}
+[3.619019] (-) TimerEvent: {}
+[3.719506] (-) TimerEvent: {}
+[3.819887] (-) TimerEvent: {}
+[3.920322] (-) TimerEvent: {}
+[4.020954] (-) TimerEvent: {}
+[4.121423] (-) TimerEvent: {}
+[4.207597] (robot_dog_motion_control) StderrLine: {'line': b'\x1b[01m\x1b[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:\x1b[m\x1b[K In constructor \xe2\x80\x98\x1b[01m\x1b[KTwistControllerSocketServer::TwistControllerSocketServer()\x1b[m\x1b[K\xe2\x80\x99:\n'}
+[4.208657] (robot_dog_motion_control) StderrLine: {'line': b'\x1b[01m\x1b[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:310:12:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[K\xe2\x80\x98\x1b[01m\x1b[KTwistControllerSocketServer::elapsed_time_\x1b[m\x1b[K\xe2\x80\x99 will be initialized after [\x1b[01;35m\x1b[K-Wreorder\x1b[m\x1b[K]\n'}
+[4.209265] (robot_dog_motion_control) StderrLine: {'line': b'  310 |     double \x1b[01;35m\x1b[Kelapsed_time_\x1b[m\x1b[K;\n'}
+[4.209764] (robot_dog_motion_control) StderrLine: {'line': b'      |            \x1b[01;35m\x1b[K^~~~~~~~~~~~~\x1b[m\x1b[K\n'}
+[4.210225] (robot_dog_motion_control) StderrLine: {'line': b'\x1b[01m\x1b[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:302:9:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[K  \xe2\x80\x98\x1b[01m\x1b[Kint TwistControllerSocketServer::server_fd_\x1b[m\x1b[K\xe2\x80\x99 [\x1b[01;35m\x1b[K-Wreorder\x1b[m\x1b[K]\n'}
+[4.210755] (robot_dog_motion_control) StderrLine: {'line': b'  302 |     int \x1b[01;35m\x1b[Kserver_fd_\x1b[m\x1b[K;\n'}
+[4.211207] (robot_dog_motion_control) StderrLine: {'line': b'      |         \x1b[01;35m\x1b[K^~~~~~~~~~\x1b[m\x1b[K\n'}
+[4.211629] (robot_dog_motion_control) StderrLine: {'line': b'\x1b[01m\x1b[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:27:5:\x1b[m\x1b[K \x1b[01;35m\x1b[Kwarning: \x1b[m\x1b[K  when initialized here [\x1b[01;35m\x1b[K-Wreorder\x1b[m\x1b[K]\n'}
+[4.212041] (robot_dog_motion_control) StderrLine: {'line': b'   27 |     \x1b[01;35m\x1b[KTwistControllerSocketServer\x1b[m\x1b[K()\n'}
+[4.212431] (robot_dog_motion_control) StderrLine: {'line': b'      |     \x1b[01;35m\x1b[K^~~~~~~~~~~~~~~~~~~~~~~~~~~\x1b[m\x1b[K\n'}
+[4.221572] (-) TimerEvent: {}
+[4.322123] (-) TimerEvent: {}
+[4.422525] (-) TimerEvent: {}
+[4.522945] (-) TimerEvent: {}
+[4.623774] (-) TimerEvent: {}
+[4.726960] (-) TimerEvent: {}
+[4.827452] (-) TimerEvent: {}
+[4.927889] (-) TimerEvent: {}
+[5.028578] (-) TimerEvent: {}
+[5.129008] (-) TimerEvent: {}
+[5.229494] (-) TimerEvent: {}
+[5.329973] (-) TimerEvent: {}
+[5.430820] (-) TimerEvent: {}
+[5.531585] (-) TimerEvent: {}
+[5.632122] (-) TimerEvent: {}
+[5.732583] (-) TimerEvent: {}
+[5.833352] (-) TimerEvent: {}
+[5.933778] (-) TimerEvent: {}
+[6.034316] (-) TimerEvent: {}
+[6.135135] (-) TimerEvent: {}
+[6.235950] (-) TimerEvent: {}
+[6.336429] (-) TimerEvent: {}
+[6.436902] (-) TimerEvent: {}
+[6.537630] (-) TimerEvent: {}
+[6.638130] (-) TimerEvent: {}
+[6.738890] (-) TimerEvent: {}
+[6.839767] (-) TimerEvent: {}
+[6.940159] (-) TimerEvent: {}
+[7.041260] (-) TimerEvent: {}
+[7.139812] (robot_dog_motion_control) StdoutLine: {'line': b'[100%] \x1b[32m\x1b[1mLinking CXX executable server\x1b[0m\n'}
+[7.141387] (-) TimerEvent: {}
+[7.243390] (-) TimerEvent: {}
+[7.343829] (-) TimerEvent: {}
+[7.444532] (-) TimerEvent: {}
+[7.445968] (robot_dog_motion_control) StdoutLine: {'line': b'[100%] Built target server\n'}
+[7.464875] (robot_dog_motion_control) CommandEnded: {'returncode': 0}
+[7.467151] (robot_dog_motion_control) JobProgress: {'identifier': 'robot_dog_motion_control', 'progress': 'install'}
+[7.484833] (robot_dog_motion_control) Command: {'cmd': ['/usr/bin/cmake', '--install', '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control'], 'cwd': '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control', 'env': OrderedDict([('LESSOPEN', '| /usr/bin/lesspipe %s'), ('USER', 'root'), ('SSH_CLIENT', '192.168.123.116 52069 22'), ('XDG_SESSION_TYPE', 'tty'), ('GIT_ASKPASS', '/root/.vscode-server/cli/servers/Stable-994fd12f8d3a5aa16f17d42c041e5809167e845a/server/extensions/git/dist/askpass.sh'), ('FZF_DEFAULT_OPTS', "--height 40% --layout=reverse --preview '(highlight -O ansi {} || cat {}) 2> /dev/null | head -500'"), ('SHLVL', '2'), ('LD_LIBRARY_PATH', '/root/.x-cmd.root/local/data/pkg/sphere/X/l/j/h/lib:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_hg/lib:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_go/lib:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_api/lib:/opt/ros/unitree_ros2/cyclonedds_ws/install/rmw_cyclonedds_cpp/lib:/opt/ros/unitree_ros2/cyclonedds_ws/install/cyclonedds/lib:/opt/ros/foxy/opt/yaml_cpp_vendor/lib:/opt/ros/foxy/opt/rviz_ogre_vendor/lib:/opt/ros/foxy/lib/aarch64-linux-gnu:/opt/ros/foxy/lib'), ('BROWSER', '/root/.vscode-server/cli/servers/Stable-994fd12f8d3a5aa16f17d42c041e5809167e845a/server/bin/helpers/browser.sh'), ('LESS', '-R'), ('MOTD_SHOWN', 'pam'), ('HOME', '/root'), ('CYCLONEDDS_URI', '<CycloneDDS><Domain><General><Interfaces>\n                            <NetworkInterface name="eth0" priority="default" multicast="default" />\n                        </Interfaces><AllowMulticast>spdp</AllowMulticast></General></Domain></CycloneDDS>'), ('OLDPWD', '/root/cmcc_agent/skills'), ('TERM_PROGRAM_VERSION', '1.107.1'), ('___X_CMD_LOG_C_TF', ''), ('VSCODE_IPC_HOOK_CLI', '/run/user/0/vscode-ipc-c56c2733-b77e-4044-9472-e1537f73eeec.sock'), ('LSCOLORS', 'Gxfxcxdxbxegedabagacad'), ('ZSH', '/root/.oh-my-zsh'), ('ROS_PYTHON_VERSION', '3'), ('PAGER', 'less'), ('VSCODE_GIT_ASKPASS_MAIN', '/root/.vscode-server/cli/servers/Stable-994fd12f8d3a5aa16f17d42c041e5809167e845a/server/extensions/git/dist/askpass-main.js'), ('___X_CMD_LOG_C_WARN', '\\033[1;33m'), ('VSCODE_GIT_ASKPASS_NODE', '/root/.vscode-server/cli/servers/Stable-994fd12f8d3a5aa16f17d42c041e5809167e845a/server/node'), ('SSL_CERT_FILE', '/usr/lib/ssl/certs/ca-certificates.crt'), ('VSCODE_PYTHON_AUTOACTIVATE_GUARD', '1'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/0/bus'), ('COLORTERM', 'truecolor'), ('___X_CMD_LOG_C_ERROR', '\\033[1;31m'), ('COLCON_PREFIX_PATH', '/opt/ros/unitree_ros2/cyclonedds_ws/install'), ('ROS_DISTRO', 'foxy'), ('GTK_IM_MODULE', 'fcitx'), ('LOGNAME', 'root'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('USER_ZDOTDIR', '/root'), ('PKG_CONFIG_PATH', '/opt/ros/unitree_ros2/cyclonedds_ws/install/cyclonedds/lib/aarch64-linux-gnu/pkgconfig:/opt/ros/unitree_ros2/cyclonedds_ws/install/cyclonedds/lib/pkgconfig'), ('___X_CMD_LOG_C_DEBUG', '\\033[2;35m'), ('CLAUDE_CODE_SSE_PORT', '41058'), ('XDG_SESSION_CLASS', 'user'), ('TERM', 'xterm-256color'), ('XDG_SESSION_ID', '8'), ('AUTOJUMP_ERROR_PATH', '/root/.local/share/autojump/errors.log'), ('BASH_SILENCE_DEPRECATION_WARNING', '1'), ('ROS_LOCALHOST_ONLY', '0'), ('PATH', '/root/.x-cmd.root/local/data/pkg/sphere/X/l/j/h/bin:/root/.x-cmd.root/bin:/home/debian/anaconda3/bin:/root/.vscode-server/data/User/globalStorage/github.copilot-chat/debugCommand:/root/.vscode-server/data/User/globalStorage/github.copilot-chat/copilotCli:/root/.vscode-server/cli/servers/Stable-994fd12f8d3a5aa16f17d42c041e5809167e845a/server/bin/remote-cli:/root/.local/bin:/opt/ros/unitree_ros2/cyclonedds_ws/install/cyclonedds/bin:/opt/ros/foxy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/root/.x-cmd.root/local/data/triarii/bin:/usr/local/go/bin'), ('XDG_RUNTIME_DIR', '/run/user/0'), ('SSL_CERT_DIR', '/usr/lib/ssl/certs'), ('VSCODE_INJECTION', '1'), ('LANG', 'en_US.UTF-8'), ('RMW_IMPLEMENTATION', 'rmw_cyclonedds_cpp'), ('XMODIFIERS', '@im=fcitx'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('VSCODE_GIT_IPC_HANDLE', '/run/user/0/vscode-git-14d245343a.sock'), ('TERM_PROGRAM', 'vscode'), ('AMENT_PREFIX_PATH', '/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_hg:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_go:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_api:/opt/ros/unitree_ros2/cyclonedds_ws/install/rmw_cyclonedds_cpp:/opt/ros/foxy'), ('SHELL', '/usr/bin/bash'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('VSCODE_GIT_ASKPASS_EXTRA_ARGS', ''), ('QT_IM_MODULE', 'fcitx'), ('PWD', '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control'), ('FZF_DEFAULT_COMMAND', 'fd --exclude={.git,.idea,.sass-cache,node_modules,build} --type f'), ('LC_ALL', 'en_US.UTF-8'), ('SSH_CONNECTION', '192.168.123.116 52069 192.168.123.99 22'), ('ZDOTDIR', '/root'), ('PYTHONPATH', '/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_hg/lib/python3.8/site-packages:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_go/lib/python3.8/site-packages:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_api/lib/python3.8/site-packages:/opt/ros/foxy/lib/python3.8/site-packages'), ('AUTOJUMP_SOURCED', '1'), ('___X_CMD_LOG_C_INFO', '\\033[32m'), ('COLCON', '1'), ('CMAKE_PREFIX_PATH', '/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_hg:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_go:/opt/ros/unitree_ros2/cyclonedds_ws/install/unitree_api:/opt/ros/unitree_ros2/cyclonedds_ws/install/rmw_cyclonedds_cpp:/opt/ros/unitree_ros2/cyclonedds_ws/install/cyclonedds:/opt/ros/foxy'), ('AMENT_CURRENT_PREFIX', '/opt/ros/foxy')]), 'shell': False}
+[7.507625] (robot_dog_motion_control) StdoutLine: {'line': b'-- Install configuration: ""\n'}
+[7.517694] (robot_dog_motion_control) StdoutLine: {'line': b'-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/server\n'}
+[7.517991] (robot_dog_motion_control) StdoutLine: {'line': b'-- Set runtime path of "/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/server" to ""\n'}
+[7.518141] (robot_dog_motion_control) StdoutLine: {'line': b'-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/client\n'}
+[7.518242] (robot_dog_motion_control) StdoutLine: {'line': b'-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/scripts/start.sh\n'}
+[7.518359] (robot_dog_motion_control) StdoutLine: {'line': b'-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/scripts/motion.sh\n'}
+[7.520012] (robot_dog_motion_control) StdoutLine: {'line': b'-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/ament_index/resource_index/package_run_dependencies/robot_dog_motion_control\n'}
+[7.520348] (robot_dog_motion_control) StdoutLine: {'line': b'-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/ament_index/resource_index/parent_prefix_path/robot_dog_motion_control\n'}
+[7.520949] (robot_dog_motion_control) StdoutLine: {'line': b'-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/ament_prefix_path.sh\n'}
+[7.521805] (robot_dog_motion_control) StdoutLine: {'line': b'-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/ament_prefix_path.dsv\n'}
+[7.522361] (robot_dog_motion_control) StdoutLine: {'line': b'-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/path.sh\n'}
+[7.522891] (robot_dog_motion_control) StdoutLine: {'line': b'-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/path.dsv\n'}
+[7.523326] (robot_dog_motion_control) StdoutLine: {'line': b'-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.bash\n'}
+[7.523789] (robot_dog_motion_control) StdoutLine: {'line': b'-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.sh\n'}
+[7.524536] (robot_dog_motion_control) StdoutLine: {'line': b'-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.zsh\n'}
+[7.525202] (robot_dog_motion_control) StdoutLine: {'line': b'-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.dsv\n'}
+[7.525604] (robot_dog_motion_control) StdoutLine: {'line': b'-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.dsv\n'}
+[7.526050] (robot_dog_motion_control) StdoutLine: {'line': b'-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/ament_index/resource_index/packages/robot_dog_motion_control\n'}
+[7.526480] (robot_dog_motion_control) StdoutLine: {'line': b'-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/cmake/robot_dog_motion_controlConfig.cmake\n'}
+[7.526942] (robot_dog_motion_control) StdoutLine: {'line': b'-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/cmake/robot_dog_motion_controlConfig-version.cmake\n'}
+[7.527383] (robot_dog_motion_control) StdoutLine: {'line': b'-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.xml\n'}
+[7.527900] (robot_dog_motion_control) CommandEnded: {'returncode': 0}
+[7.545505] (-) TimerEvent: {}
+[7.592065] (robot_dog_motion_control) JobEnded: {'identifier': 'robot_dog_motion_control', 'rc': 0}
+[7.594341] (-) EventReactorShutdown: {}

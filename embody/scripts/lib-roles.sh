@@ -7,8 +7,8 @@
 # 的唯一副本——setup / daemon / watch 三个脚本都从这里取，免得各自写一份后漂移
 # （此前 interactor 的路径就散在三处）。新角色先在表里登记，再建目录。
 #
-# supervisor 的目录里还有一份 robot_status.example.yaml（本体状态观测的形状样例，
-# 运行时文件在 runtime_files/，那里整目录 gitignore）。
+# 监督器每轮读的三份观测（视觉观察 / 本体状态 / 运动状态）不在本目录：路径是
+# configs/paths.py 的 RUNTIME_*（经 scripts/role-daemon.sh 过桥给常驻叠加层）。
 #
 # 依赖调用方先设好 REPO_ROOT（= embody/）。
 # 用法：
@@ -74,4 +74,32 @@ role_session_id() {
 # role_default_dsh_home <role> —— 本地联调缺省的隔离 DSH_HOME（仓库内、已 gitignore）。
 role_default_dsh_home() {
   printf '%s\n' "$REPO_ROOT/.dsh-dev/$1"
+}
+
+# role_system_dsh_home [<显式目录>] —— 角色系统共用的那份 DSH_HOME，打印绝对路径（会 mkdir -p）。
+#
+# 取值优先级：显式参数 > $DSH_HOME > 缺省 $REPO_ROOT/.dsh-dev/system。判据与缺省值只有这一处
+# ——组件侧（start_agent.py 里的 receiver）与角色侧（rolebus 的 spool）都要落在同一份上，而两侧
+# 都在 starter.sh 里起，所以那里只算一次：
+# spool 是它的子目录，两边分开就是「云端事件投进没人轮询的收件箱」，且失败是静默的。
+#
+# 一律换成绝对路径：相对路径每一处解析出的目录都不一样——引擎（`( cd <引擎根> && pnpm dsh … )`，
+# 见 scripts/role-daemon.sh）按引擎根解，脚本侧（daemon 日志、profile 的 cp）按调用者的 cwd 解，
+# 于是 profile / 会话日志 / spool 会散在两个不同的 `.dsh-dev/…` 下，症状是「什么都没发生」而不是
+# 报错。`~/` 也在这里展开（值是引号传进来的话，shell 不会替你展）。
+role_system_dsh_home() {
+  local arg="${1:-}" dir
+  case "$arg" in
+    '~')   dir="$HOME" ;;
+    '~/'*) dir="$HOME/${arg#'~/'}" ;;
+    *)     dir="${arg:-${DSH_HOME:-$REPO_ROOT/.dsh-dev/system}}" ;;
+  esac
+  if ! mkdir -p "$dir"; then
+    echo "lib-roles: 建不出 DSH_HOME $dir" >&2
+    return 1
+  fi
+  ( cd "$dir" && pwd ) || {
+    echo "lib-roles: DSH_HOME $dir 进不去" >&2
+    return 1
+  }
 }

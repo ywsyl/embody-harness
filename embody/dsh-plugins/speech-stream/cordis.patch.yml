@@ -1,0 +1,17 @@
+# @embody/dsh-speech-stream —— 流式语音 bundle 补丁。
+#
+# 分层语义（与引擎一致）：每个 bundle 的 cordis.patch.yml 是一层，后面各层按行(id)整块替换
+# 它的键。本层只负责「插入 speech-stream 行」，**值是关着的**（disabled: true）：
+#
+#   流式播报是**部署形态**（哪个角色出声、那台机器上有没有扬声器），不是插件自身的行为。
+#   打开它的地方只有一份：embody/Interactor/cordis.patch.yml（`disabled` 判环境变量 +
+#   真实 config）。这一对必须一致。
+#
+# 关着的行不会被装载，因此**不打**下面那份 config 的 schema 校验；真正生效的那份在
+# Interactor/cordis.patch.yml 里（那里必须给全 maxCharsPerChunk 与 deliveryMode —— 两个都
+# required，缺一个就在装载时报 missing required value，而不是悄悄退化成某个内置阈值）。
+
+- insert:
+    - id: speech-stream
+      name: '@embody/dsh-speech-stream'
+      disabled: true

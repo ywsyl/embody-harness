@@ -1,0 +1,19 @@
+# @embody/dsh-location-context —— 【支持地点清单】注入 bundle 补丁。
+#
+# 分层语义（与引擎一致）：每个 bundle 的 cordis.patch.yml 是一层，后面各层按行(id)整块替换
+# 它的键。本层只负责「插入 location-context 行」，**值是关着的**（disabled: true）：
+#
+#   注什么由 `list` 决定，而那份正文是 configs/configs.py 的 supported_locations_text()
+#   现渲染出来的（经 scripts/role-daemon.sh 过桥），这一层给不出来。关着的行不会被装载，因此
+#   **不打**下面这份 config 的 schema 校验；真正生效的那两份在 Interactor/cordis.patch.yml 与
+#   Supervisor/cordis.patch.yml（profile 层，`disabled: false` + 取环境变量的 list）。
+#   两处必须一致：本层插的行与 profile 层覆盖的行是同一个 id。
+#
+# 只给交互器与监督器装（scripts/rolebus-setup.sh 里按角色 ensure_bundle）：这两个角色手里没有
+# waypoint_nav 工具、却在人设里就要按清单判断（交互器判信息完备性、监督器判任务地点是否合法）；
+# 编排器与 planner 不装——它们的工具面里没有这一行的用处。
+
+- insert:
+    - id: location-context
+      name: '@embody/dsh-location-context'
+      disabled: true

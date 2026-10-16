@@ -14,56 +14,98 @@ tools:
         text:
           type: string
           description: 要播报的文本内容
+        play_now:
+          type: boolean
+          description: 是否立即播放并打断当前正在播报的内容。默认 false，表示不主动抢麦；true表示主动抢麦、立刻打断在播的内容。
+        need_listen:
+          type: boolean
+          description: 播报完成后是否需要收听用户回复。默认false，表示本次仅播报、不需要收听（如通知、告知）；true表示本次播报需要与用户交互并获得回复（如询问、聊天等）。
       required:
         - text
       additionalProperties: false
   extra:
     repeatable: false
-    skill_path: skills/tts-speak/SKILL.md
-    output_format: "成功输出 `✅ 播报完成 (play_id: xxx)`，失败则输出 JSON 格式错误信息"
+    output_format: "成功输出 `✅ 播报完成`，失败则输出 JSON 格式错误信息"
+
+# - type: function
+#   function:
+#     name: listen
+#     description: "主动唤醒设备收音一次，返回设备识别到的用户这一轮的话（阻塞等待，最长等一个收音窗口）。没人说话就返回未收到。"
+#     parameters:
+#       type: object
+#       properties: {}
+#       required: []
+#       additionalProperties: false
+#   extra:
+#     repeatable: false
+#     output_format: "收到语音输出 `[本地语音] 用户说：<文本>`，收音窗口内没识别到则输出 `[本地语音] 未收到用户语音（收音窗口内未识别到语音）`"
+
+# - type: function
+#   function:
+#     name: speak_listen
+#     description: |
+#       执行1轮"播报→收音"的语音交互：先通过TTS扬声器播报文本（speak），播报完成后主动唤醒设备收音一次，返回识别到的用户语音（listen）。
+#       适用于只需"说一句、听一句"的单轮询问/确认/收集回复场景。
+#     parameters:
+#       type: object
+#       properties:
+#         text:
+#           type: string
+#           description: 要播报的文本内容，播报完成后随即开始收音（要求简洁，50字以内）
+#         wait_done:
+#           type: boolean
+#           description: 是否等播报完整播完再开始收音；默认 true。设为 false 则播报一发出就开始收音（唤醒会掐断没播完的播报，一般不要设）。
+#       required:
+#         - text
+#       additionalProperties: false
+#   extra:
+#     repeatable: false
+#     output_format: "成功输出 `✅ 播报完成` 与 `[本地语音] 用户说：<文本>`；收音窗口内没识别到则输出 `[本地语音] 未收到用户语音（收音窗口内未识别到语音）`"
+
+# - type: function
+#   function:
+#     name: audio_interact
+#     description: |
+#       播报一句话，**说完之后**才唤醒设备开始收音，把用户这一轮的回答收下来。收音开始后
+#       还会留一段时间等用户开口，这段时间里说的话会被收下；一直没人说话才返回。
+#     parameters:
+#       type: object
+#       properties:
+#         text:
+#           type: string
+#           description: 要播报的文本内容（要求简洁，50字以内）
+#       required:
+#         - text
+#       additionalProperties: false
+#   extra:
+#     repeatable: false
+#     output_format: "收到用户语音输出 `[本地语音] 用户说：<文本>`；没收到则输出 `[本地语音] 未收到用户语音（<结束原因>）`"
+
+# - type: function
+#   function:
+#     name: speak_input
+#     description: |
+#       本地联调入口（无云端接线时用）：先通过TTS扬声器播报文本，播报完成后从控制终端读入一行，作为用户这一轮的回答。
+#       与 speak_listen 的区别只有一个：回答从终端来，不是等云端下发。正常运行（有云端）时不要用本工具。
+#     parameters:
+#       type: object
+#       properties:
+#         text:
+#           type: string
+#           description: 要播报的文本内容，播报完成后随即等终端输入一行（要求简洁，50字以内）
+#         wait_done:
+#           type: boolean
+#           description: 是否等播报完整播完再读终端；默认 true。
+#       required:
+#         - text
+#       additionalProperties: false
+#   extra:
+#     repeatable: false
+#     output_format: "成功输出 `✅ 播报完成` 与 `[终端输入] <文本>`；窗口内没敲入则输出 `[终端输入] 未收到终端输入`；没有控制终端则输出读不到终端的提示"
 
 - type: function
   function:
-    name: listen
-    description: "语音识别（ASR）技能，主动拉起1次收音（非持续）并返回识别到的语音文本。"
-    parameters:
-      type: object
-      properties:
-        timeout:
-          type: integer
-          description: 识别超时秒数，默认10，超过则判定未识别到语音
-      required: []
-      additionalProperties: false
-  extra:
-    repeatable: false
-    skill_path: skills/asr-listener/SKILL.md
-    output_format: "成功输出 `[ASR] <识别文本>`，未识别则输出 `[ASR] 未识别到语音内容`"
-
-- type: function
-  function:
-    name: speak_listen
-    description: |
-      执行1轮"播报→收音"的语音交互：先通过TTS扬声器播报文本（speak），播报完成后随即主动收音识别用户回答（listen）。
-      适用于只需"说一句、听一句"的单轮询问/确认/收集回复场景。
-    parameters:
-      type: object
-      properties:
-        text:
-          type: string
-          description: 要播报的文本内容，播报完成后随即开始收音识别用户回答（要求简洁，50字以内）
-        listen_timeout:
-          type: integer
-          description: 收音识别超时秒数，默认10，超过则判定未识别到语音
-      required:
-        - text
-      additionalProperties: false
-  extra:
-    repeatable: false
-    output_format: "成功输出 `✅ 播报完成: ...` 与 `[ASR] <识别文本>`；未识别到语音则输出 `[ASR] 未识别到语音内容`"
-
-- type: function
-  function:
-    name: do_action
+    name: action
     description: 控制机器狗执行指定的预设动作（站立、坐下、趴下、跳舞、比心、拜年等）。不适用于移动类任务（如平移、旋转等）。
     parameters:
       type: object
@@ -79,20 +121,52 @@ tools:
             - 'standUp'：站立
             - 'sitDown'：坐下
             - 'getDown'：趴下
-            - 'greeting'：打招呼/握手
+            - 'greeting'：打招呼
+            - 'handShake'：握手
             - 'fingerHeart'：比心
             - 'newYearCall'：拜年
             - 'leap'：扑人
             - 'jumpForward'：前跳
             - 'walkUpsideDown'：倒立行走
             - 'standErect'：直立站立
+            - 'makeBow'：鞠躬
+            - 'twistBody'：扭身
+            - 'twistAss'：扭屁股
+            - 'shakeBody'：抖身（快抖）
+            - 'backflip'：后空翻
+            - 'turnOver'：翻滚
+            - 'twistJump'：扭身跳
       required:
         - action_type
       additionalProperties: false
   extra:
     repeatable: false
-    skill_path: skills/robot-dog-actions/SKILL.md
-    output_format: "成功输出 `✅ 动作执行完成: ...`，无效动作或执行失败则输出 JSON 格式错误信息"
+    output_format: "成功输出 `✅ 动作指令已发送: <动作名>`（只是指令下发成功，**不代表动作已做完**）；无效动作或下发失败则输出错误信息"
+
+- type: function
+  function:
+    name: gait
+    description: |
+      切换机器狗的步态（行走方式）。步态是**持续生效的模式**，切一次之后一直有效，直到下次再切；
+      按场景选：日常行走用经典步态，复杂/崎岖地形用全地形步态，需要高速移动用跑步步态，
+      被牵引（拖拽/绳索）时用牵引步态。
+    parameters:
+      type: object
+      properties:
+        gait_type:
+          type: string
+          description: |
+            步态名称，必须为以下之一：
+            - 'AINimble'：全地形步态（AI 自适应，适用于复杂地形）
+            - 'AIClassic'：经典步态（AI 经典，日常行走推荐）
+            - 'run'：跑步步态（高速移动）
+            - 'traction'：牵引步态（被牵引时使用）
+      required:
+        - gait_type
+      additionalProperties: false
+  extra:
+    repeatable: false
+    output_format: "成功输出 `✅ 动作指令已发送: <步态>`（只是切换指令下发成功，**不等到切换完成**）；无效步态或下发失败则输出错误信息"
 
 - type: function
   function:
@@ -121,12 +195,11 @@ tools:
       additionalProperties: false
   extra:
     repeatable: false
-    skill_path: skills/robot-dog-motion-control/SKILL.md
     output_format: "成功输出 `✅ 移动完成: <mode> <value><单位>`，无效参数或执行失败则输出错误信息"
 
 - type: function
   function:
-    name: look
+    name: vision
     description: |
       Vision Skill 是机器人具备环境视觉理解能力的基础技能，用于根据任务需求获取视觉信息，并通过视觉模型完成场景理解、目标识别、环境分析和图片问答。
       统一封装机器人视觉能力入口，支持两种模式：单张图片分析（image）、前方视觉感知（front）。
@@ -152,7 +225,31 @@ tools:
       additionalProperties: false
   extra:
     repeatable: false
-    skill_path: skills/vision/SKILL.md
+
+- type: function
+  function:
+    name: vision_tunables
+    description: |
+      调整视觉观测的频率。
+      适用场景：用户明确对视觉的实时性提出诉求（"看快点/看勤一点""别那么频繁地看""反应快点"）；
+      或需要监督活跃事件时；或后台观测过于频繁、无谓地占用算力与上报时。
+      不传参数 = 查询当前档位与生效值。
+    parameters:
+      type: object
+      properties:
+        observe_rate:
+          type: string
+          description: |
+            观测频率档位，必须为以下之一：
+            - 'low'：低（看最稀，最省）
+            - 'medium'：中
+            - 'high'：高（看最勤，反应最快）
+            不传 = 只查询不修改。
+      required: []
+      additionalProperties: false
+  extra:
+    repeatable: false
+    output_format: "成功输出当前档位与生效参数（观测周期、每轮拼接帧数）；无参数则只输出当前生效值；无效档位则返回可用档位清单"
 
 - type: function
   function:
@@ -178,7 +275,6 @@ tools:
       additionalProperties: false
   extra:
     repeatable: false
-    skill_path: skills/vision/SKILL.md
     output_format: "成功输出 JSON 对象 {\"found\": true/false, \"targets\": [{\"region\": xxx, \"x_hirizon\": xxx, \"visible_features\": xxx, \"confidence\": xxx}], \"return_message\": \"面向用户的简洁中文说明\"}，失败则输出 JSON 格式错误信息"
 
 - type: function
@@ -198,8 +294,38 @@ tools:
       additionalProperties: false
   extra:
     repeatable: false
-    skill_path: skills/search/SKILL.md
     output_format: "成功输出 JSON 对象 {\"found\": true/false, \"state\": \"found_and_arrived|found|found_lost|not_found|error|timeout\", \"message\": \"面向用户的简洁中文说明\"}，失败则输出 JSON 格式错误信息"
+
+- type: function
+  function:
+    name: bull_chase
+    description: |
+      斗牛（表演动作）：无入参。目标固定为红色斗牛旗（描述在 configs.prompts.BULL_CHASE_PROMPT）。
+      每一轮认出旗子位置并报给算法、由算法冲向它；收到"本轮结束"就自动再跑一轮，直到算法报结束或用户说停止。
+      适用场景：用户要求"斗牛""表演斗牛"这类不需要指定目标的固定节目。
+    parameters:
+      type: object
+      properties: {}
+      required: []
+      additionalProperties: false
+  extra:
+    repeatable: false
+    output_format: "成功输出 JSON 对象 {\"result\": \"退出情况说明（如 11：连续3次无法识别到目标（红色斗牛旗））\", \"turns\": 已进行的轮数, \"sn\": ..., \"last_status\": ..., \"received_codes\": [...]}；目标 prompt 未配置（BULL_CHASE_PROMPT 为空占位）时输出配置提示；视觉工具调用失败（取帧失败 / 视觉接口报错 / 解析不出 objpos）以错误状态结束，失败则输出 JSON 格式错误信息"
+
+- type: function
+  function:
+    name: bull_chase_stop
+    description: |
+      停止斗牛：无入参，向斗牛算法下发结束信令，中止正在进行的斗牛表演。
+      适用场景：用户要求"停止斗牛""不斗牛了"这类中止斗牛的指令。
+    parameters:
+      type: object
+      properties: {}
+      required: []
+      additionalProperties: false
+  extra:
+    repeatable: false
+    output_format: "成功输出 JSON 对象 {\"result\": \"已下发结束信令…\", \"sn\": ..., \"subscriber_seen\": true/false}，失败则输出 JSON 格式错误信息"
 
 - type: function
   function:
@@ -208,6 +334,8 @@ tools:
       定点导航（waypoint_nav）：预先建图并设置好地点（点位），导航时输入地点名称即可前往对应坐标点。
       与 vision_language_nav（视觉导航，输入一段自然语言指令靠视觉逐渐靠近）不同：定点导航只认预先设置好的地点名，
       不适用于需要自由规划路径的指令。
+      导航前会自己检查导航服务与底盘定位（服务没启动/出错会直接失败并说明；底盘没定位会先自动重定位），
+      不需要你先调别的工具去查状态。
     parameters:
       type: object
       properties:
@@ -239,5 +367,83 @@ tools:
       additionalProperties: false
   extra:
     repeatable: false
-    skill_path: skills/waypoint_nav/vision_language_nav.md
     output_format: "成功输出 JSON 对象（含 status/stop/robot_pose 等字段），失败输出 JSON 格式错误信息（status=error）"
+
+- type: function
+  function:
+    name: robot_state
+    description: |
+      查看机器狗自身的状态快照，包含视觉观察历史、系统状态、运动状态三类。
+      适用场景：需要知道机器人此刻的身体/运动/视觉状态时；怀疑某个后台组件没在跑、状态数据可能不新鲜时；向用户报告自身情况前核对一眼。
+    parameters:
+      type: object
+      properties:
+        section:
+          type: string
+          description: |
+            要读哪一段状态，必须为以下之一：
+            - 'vision'：视觉观察历史（视觉观测器写的画面描述）
+            - 'system'：系统状态（机器人读数、主机资源、位置、各组件可用性）
+            - 'motion'：运动状态（最近的运动记录与空闲情况）
+      required:
+        - section
+      additionalProperties: false
+  extra:
+    repeatable: false
+    output_format: "原样输出所选段的 YAML 内容；该段文件不存在或为空时输出对应提示（说明写入它的后台进程可能没在跑）"
+
+- type: function
+  function:
+    name: weather
+    description: |
+      查询天气：当前天气 + 逐日预报，数据来自 open-meteo 网络服务。
+      适用场景：用户问今天/明天/这几天天气、气温多少、会不会下雨、要不要带伞时。
+      不填任何参数 = 查系统当前所在地、今天。
+      要查别的日期填 start_date（需要多天就再填 end_date）；要查别的地方填 location（地名）。
+      机器狗所在地的经纬度由本工具自己从状态快照里读，不要另用 robot_state 取坐标再自己拼接口。
+    parameters:
+      type: object
+      properties:
+        location:
+          type: string
+          description: 要查的地点名称，如「北京」「杭州西湖」。省略则用机器狗当前所在地。地名解析不出来时改用 latitude/longitude。
+        latitude:
+          type: number
+          description: 纬度（十进制）。与 longitude 成对给，用于直接指定坐标；省略则用机器狗当前所在地。给了 location 时不用给这两个。
+        longitude:
+          type: number
+          description: 经度（十进制）。必须与 latitude 一起给，只给一个会被拒绝。
+        start_date:
+          type: string
+          description: 起始日期，格式 YYYY-MM-DD。省略默认当天。
+        end_date:
+          type: string
+          description: 结束日期，格式 YYYY-MM-DD。省略则只查 start_date 那一天。
+      required: []
+      additionalProperties: false
+  extra:
+    repeatable: false
+    output_format: "输出中文摘要 + 末尾附关键原始数字：地点（含经纬度与位置数据时刻）、数据来源与数据时刻、当前天气（天气/温度/体感/湿度/风速）、逐日预报（每天天气/最低~最高温/最大降水概率）。位置取不到、地名查不到、参数非法、接口不通时输出错误信息（说明原因与可换的做法）"
+
+- type: function
+  function:
+    name: task_list
+    description: |
+      读任务。可选择查找范围：recent（还没终结的任务，全在一份清单里）与history（已经终结的任务，一条一个文件）。
+      不带 task_id 时按 task_range 给出整批（recent给清单原文、history给汇总表）；带 task_id 时只给那一条任务的全文或返回未找到该任务。
+    parameters:
+      type: object
+      properties:
+        task_range:
+          type: string
+          enum: ["recent", "history"]
+          description: 读哪一批，只在不带 task_id（读整批）时起作用。recent=还没终结的任务（状态为 pending / executing / stopped / interrupted）；history=已经终结的历史任务（状态为 succeeded / failed / cancelled）。省略即 recent。带 task_id 时本参数不参与决策、填了也被忽略。
+        task_id:
+          type: string
+          description: 任务编号。给了就只读那一条的全文（先在 recent 里找、找不到再到 history 里找，与本参数无关）；找不到就说没有找到、不报错。省略则按 task_range 给出整批。
+      required: []
+      additionalProperties: false
+  extra:
+    repeatable: true
+    output_format: "不带 task_id：task_range=recent（或省略）时原样输出清单文件的 YAML 原文，清单为空或还不存在时输出对应提示；task_range=history 时输出历史任务汇总（头部说明 + 条数 + 每条只列 task_id / status / description / owner / create_time / last_update_time，不含执行记录），一条都没有时输出对应提示。带 task_id：输出那一条任务的 YAML 全文（先在 recent 清单里找，找不到再翻 history 存档；命中存档时前面先说一句「在历史任务中找到该任务」）；两批里都没有时输出「在近期待做（task_range=recent）与历史完结（task_range=history）任务库中都未找到该任务（…）：可能是任务号错误，或者该任务文件已被过期删除。」；任务号本身不合法时输出参数错误"
+

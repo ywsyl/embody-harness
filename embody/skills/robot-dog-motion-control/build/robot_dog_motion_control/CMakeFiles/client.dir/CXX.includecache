@@ -1,0 +1,40 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/root/cmcc_agent/skills/robot-dog-motion-control/src/client.cpp
+iostream
+-
+cstring
+-
+stdexcept
+-
+string
+-
+sys/socket.h
+-
+sys/un.h
+-
+unistd.h
+-
+motion_protocol.hpp
+/root/cmcc_agent/skills/robot-dog-motion-control/src/motion_protocol.hpp
+
+/root/cmcc_agent/skills/robot-dog-motion-control/src/motion_protocol.hpp
+condition_variable
+-
+cstddef
+-
+cstring
+-
+memory
+-
+mutex
+-
+string
+-
+

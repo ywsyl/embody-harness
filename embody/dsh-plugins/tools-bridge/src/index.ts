@@ -1,10 +1,10 @@
 /**
  * @embody/dsh-tools-bridge —— 自定义工具的注册方。
  *
- * 本项目里的机器人技能（`speak` / `speak_listen` / `do_action` / `look` /
- * `waypoint_nav` / `move`）在 Python 侧实现，定义在 `plugin_tools/available_tools.yaml`，
- * 按角色分成白名单放在 `configs/agent_plugin.py` 的 `ROLE_TOOLS`。dsh 的模型只认工具表里
- * 注册过的工具，因此需要有人把白名单搬进去 —— 就是本插件：
+ * 本项目里的机器人技能（`speak` / `listen` / `speak_listen` / `speak_input` / `action` /
+ * `gait` / `move` / `vision` / `waypoint_nav` …）在 Python 侧实现，定义在
+ * `plugin_tools/available_tools.yaml`，按角色分成白名单放在 `configs/agents.py` 的 `ROLE_TOOLS`。
+ * dsh 的模型只认工具表里注册过的工具，因此需要有人把白名单搬进去 —— 就是本插件：
  *   - 装载时按本 profile 的 `role` 取一次白名单（`list`），逐条 `ctx.tools.register`；
  *     取不到（角色不在白名单表里、解释器起不来、清单为空）即启动失败，不会安静地少一批
  *     工具。
@@ -37,7 +37,7 @@ export const inject = ['tools']
  * 未覆盖时本插件不注册任何工具。
  */
 export interface Config {
-  /** 本 profile 的角色身份，取值同 configs/agent_plugin.py 的 ROLE_TOOLS 键。 */
+  /** 本 profile 的角色身份，取值同 configs/agents.py 的 ROLE_TOOLS 键。 */
   role: string
   /** 跑 Python 桥的解释器可执行文件；桥依赖 PyYAML。 */
   python: string
@@ -73,7 +73,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   if (descriptions.length === 0) {
     throw new Error(
       `tools-bridge: 角色 ${JSON.stringify(role)} 的白名单一条工具都没取到`
-      + ' —— 查 configs/agent_plugin.py 的 ROLE_TOOLS 与 plugin_tools/available_tools.yaml',
+      + ' —— 查 configs/agents.py 的 ROLE_TOOLS 与 plugin_tools/available_tools.yaml',
     )
   }
   const definitions = descriptions.map(description => createToolDefinition(options, description))

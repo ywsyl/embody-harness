@@ -1,0 +1,149 @@
+[0.946s] DEBUG:colcon:Command line arguments: ['/usr/bin/colcon', '--log-base', '/root/cmcc_agent/skills/robot-dog-motion-control/log', 'build', '--base-paths', '/root/cmcc_agent/skills/robot-dog-motion-control', '--packages-select', 'robot_dog_motion_control', '--build-base', '/root/cmcc_agent/skills/robot-dog-motion-control/build', '--install-base', '/root/cmcc_agent/skills/robot-dog-motion-control/install']
+[0.946s] DEBUG:colcon:Parsed command line arguments: Namespace(allow_overriding=[], ament_cmake_args=None, base_paths=['/root/cmcc_agent/skills/robot-dog-motion-control'], build_base='/root/cmcc_agent/skills/robot-dog-motion-control/build', catkin_cmake_args=None, catkin_skip_building_tests=False, cmake_args=None, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, cmake_target=None, cmake_target_skip_unavailable=False, continue_on_error=False, event_handlers=None, executor='parallel', ignore_user_meta=False, install_base='/root/cmcc_agent/skills/robot-dog-motion-control/install', log_base='/root/cmcc_agent/skills/robot-dog-motion-control/log', log_level=None, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0x7f86b9eaf0>>, merge_install=False, metas=['./colcon.meta'], mixin=None, mixin_files=None, mixin_verb=('build',), packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_end=None, packages_ignore=None, packages_ignore_regex=None, packages_select=['robot_dog_motion_control'], packages_select_build_failed=False, packages_select_by_dep=None, packages_select_regex=None, packages_select_test_failures=False, packages_skip=None, packages_skip_build_finished=False, packages_skip_by_dep=None, packages_skip_regex=None, packages_skip_test_passed=False, packages_skip_up_to=None, packages_start=None, packages_up_to=None, packages_up_to_regex=None, parallel_workers=8, paths=None, symlink_install=False, test_result_base=None, verb_extension=<colcon_core.verb.build.BuildVerb object at 0x7f86b9eaf0>, verb_name='build', verb_parser=<colcon_mixin.mixin.mixin_argument.MixinArgumentDecorator object at 0x7f86bad0d0>)
+[1.170s] Level 1:colcon.colcon_core.package_discovery:discover_packages(colcon_meta) check parameters
+[1.170s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) check parameters
+[1.170s] Level 1:colcon.colcon_core.package_discovery:discover_packages(ignore) check parameters
+[1.170s] Level 1:colcon.colcon_core.package_discovery:discover_packages(path) check parameters
+[1.170s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) discover
+[1.170s] INFO:colcon.colcon_core.package_discovery:Crawling recursively for packages in '/root/cmcc_agent/skills/robot-dog-motion-control'
+[1.170s] Level 1:colcon.colcon_core.package_identification:_identify(/root/cmcc_agent/skills/robot-dog-motion-control) by extensions ['ignore', 'ignore_ament_install']
+[1.171s] Level 1:colcon.colcon_core.package_identification:_identify(/root/cmcc_agent/skills/robot-dog-motion-control) by extension 'ignore'
+[1.171s] Level 1:colcon.colcon_core.package_identification:_identify(/root/cmcc_agent/skills/robot-dog-motion-control) by extension 'ignore_ament_install'
+[1.171s] Level 1:colcon.colcon_core.package_identification:_identify(/root/cmcc_agent/skills/robot-dog-motion-control) by extensions ['colcon_pkg']
+[1.171s] Level 1:colcon.colcon_core.package_identification:_identify(/root/cmcc_agent/skills/robot-dog-motion-control) by extension 'colcon_pkg'
+[1.171s] Level 1:colcon.colcon_core.package_identification:_identify(/root/cmcc_agent/skills/robot-dog-motion-control) by extensions ['colcon_meta']
+[1.171s] Level 1:colcon.colcon_core.package_identification:_identify(/root/cmcc_agent/skills/robot-dog-motion-control) by extension 'colcon_meta'
+[1.171s] Level 1:colcon.colcon_core.package_identification:_identify(/root/cmcc_agent/skills/robot-dog-motion-control) by extensions ['ros']
+[1.171s] Level 1:colcon.colcon_core.package_identification:_identify(/root/cmcc_agent/skills/robot-dog-motion-control) by extension 'ros'
+[1.234s] DEBUG:colcon.colcon_core.package_identification:Package '/root/cmcc_agent/skills/robot-dog-motion-control' with type 'ros.ament_cmake' and name 'robot_dog_motion_control'
+[1.235s] Level 1:colcon.colcon_core.package_discovery:discover_packages(recursive) using defaults
+[1.298s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) check parameters
+[1.298s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) discover
+[1.302s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/webtransport_client' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.302s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/websocket_client' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.302s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/video_gst_neck' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.303s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/video_gst' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.303s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/version_manager' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.303s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/uwb_package' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.303s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/uploadlog' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.303s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/ultrasonic' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.303s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/traffic_monitor' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.303s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/speech_client' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.303s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/sensor_data_manager' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.303s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/robdog_qt_tools' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.303s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/robdog_control' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.303s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/rhythm_master' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.303s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/rcutils' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.303s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/pwm_touch' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.303s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/point_process' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.304s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/pixel2world_pose' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.304s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/peripherals' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.304s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/performance_controller' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.304s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/nvidia_control' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.304s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/network' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.304s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/motion_control' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.304s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/lxsdk' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.304s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/live_stream' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.304s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/launch_package' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.304s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/homi_speech' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.304s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/homi_audio_player' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.304s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/headset_input' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.304s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/follow_rcs' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.304s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/face_detector' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/expression' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/eskin' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/dds_auth' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/cmcc_rtc' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/claw_client' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/ble' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/audio_recorder' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/audio_player' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/audio_center' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/andlink2' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/andlink' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/a2dp' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/homi_speech_interface' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/follow_strategy' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.305s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/follow_msgs' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.306s] WARNING:colcon.colcon_ros.prefix_path.ament:The path '/usr/bin/cmcc_robot/install/follow_me_bringup' in the environment variable AMENT_PREFIX_PATH doesn't contain any 'local_setup.*' files.
+[1.309s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 5 installed packages in /opt/ros/unitree_ros2/cyclonedds_ws/install
+[1.311s] DEBUG:colcon.colcon_installed_package_information.package_discovery:Found 303 installed packages in /opt/ros/foxy
+[1.313s] Level 1:colcon.colcon_core.package_discovery:discover_packages(prefix_path) using defaults
+[1.493s] Level 5:colcon.colcon_core.verb:set package 'robot_dog_motion_control' build argument 'cmake_args' from command line to 'None'
+[1.493s] Level 5:colcon.colcon_core.verb:set package 'robot_dog_motion_control' build argument 'cmake_target' from command line to 'None'
+[1.493s] Level 5:colcon.colcon_core.verb:set package 'robot_dog_motion_control' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[1.493s] Level 5:colcon.colcon_core.verb:set package 'robot_dog_motion_control' build argument 'cmake_clean_cache' from command line to 'False'
+[1.493s] Level 5:colcon.colcon_core.verb:set package 'robot_dog_motion_control' build argument 'cmake_clean_first' from command line to 'False'
+[1.493s] Level 5:colcon.colcon_core.verb:set package 'robot_dog_motion_control' build argument 'cmake_force_configure' from command line to 'False'
+[1.493s] Level 5:colcon.colcon_core.verb:set package 'robot_dog_motion_control' build argument 'ament_cmake_args' from command line to 'None'
+[1.493s] Level 5:colcon.colcon_core.verb:set package 'robot_dog_motion_control' build argument 'catkin_cmake_args' from command line to 'None'
+[1.493s] Level 5:colcon.colcon_core.verb:set package 'robot_dog_motion_control' build argument 'catkin_skip_building_tests' from command line to 'False'
+[1.493s] DEBUG:colcon.colcon_core.verb:Building package 'robot_dog_motion_control' with the following arguments: {'ament_cmake_args': None, 'build_base': '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control', 'merge_install': False, 'path': '/root/cmcc_agent/skills/robot-dog-motion-control', 'symlink_install': False, 'test_result_base': None}
+[1.494s] INFO:colcon.colcon_core.executor:Executing jobs using 'parallel' executor
+[1.495s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete
+[1.496s] INFO:colcon.colcon_ros.task.ament_cmake.build:Building ROS package in '/root/cmcc_agent/skills/robot-dog-motion-control' with build type 'ament_cmake'
+[1.496s] INFO:colcon.colcon_cmake.task.cmake.build:Building CMake package in '/root/cmcc_agent/skills/robot-dog-motion-control'
+[1.502s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[1.503s] INFO:colcon.colcon_core.shell:Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[1.503s] DEBUG:colcon.colcon_core.shell:Skip shell extension 'dsv' for command environment
+[1.506s] DEBUG:colcon.colcon_core.shell:Ignoring prefix path '/usr/bin/cmcc_robot/install'
+[1.529s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/usr/bin/cmcc_robot/install/uploadlog:/usr/bin/cmcc_robot/install/traffic_monitor:/usr/bin/cmcc_robot/install/speech_client:/usr/bin/cmcc_robot/install/pwm_touch:/usr/bin/cmcc_robot/install/point_process:/usr/bin/cmcc_robot/install/pixel2world_pose:/usr/bin/cmcc_robot/install/network:/usr/bin/cmcc_robot/install/headset_input:/usr/bin/cmcc_robot/install/claw_client:/usr/bin/cmcc_robot/install/ble:/usr/bin/cmcc_robot/install/a2dp:/usr/bin/cmcc_robot/install/follow_strategy:/opt/ros/foxy /usr/bin/cmake --build /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control -- -j8 -l8
+[8.901s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/usr/bin/cmcc_robot/install/uploadlog:/usr/bin/cmcc_robot/install/traffic_monitor:/usr/bin/cmcc_robot/install/speech_client:/usr/bin/cmcc_robot/install/pwm_touch:/usr/bin/cmcc_robot/install/point_process:/usr/bin/cmcc_robot/install/pixel2world_pose:/usr/bin/cmcc_robot/install/network:/usr/bin/cmcc_robot/install/headset_input:/usr/bin/cmcc_robot/install/claw_client:/usr/bin/cmcc_robot/install/ble:/usr/bin/cmcc_robot/install/a2dp:/usr/bin/cmcc_robot/install/follow_strategy:/opt/ros/foxy /usr/bin/cmake --build /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control -- -j8 -l8
+[8.931s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoking command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/usr/bin/cmcc_robot/install/uploadlog:/usr/bin/cmcc_robot/install/traffic_monitor:/usr/bin/cmcc_robot/install/speech_client:/usr/bin/cmcc_robot/install/pwm_touch:/usr/bin/cmcc_robot/install/point_process:/usr/bin/cmcc_robot/install/pixel2world_pose:/usr/bin/cmcc_robot/install/network:/usr/bin/cmcc_robot/install/headset_input:/usr/bin/cmcc_robot/install/claw_client:/usr/bin/cmcc_robot/install/ble:/usr/bin/cmcc_robot/install/a2dp:/usr/bin/cmcc_robot/install/follow_strategy:/opt/ros/foxy /usr/bin/cmake --install /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control
+[8.961s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(robot_dog_motion_control)
+[8.966s] DEBUG:colcon.colcon_core.event_handler.log_command:Invoked command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/usr/bin/cmcc_robot/install/uploadlog:/usr/bin/cmcc_robot/install/traffic_monitor:/usr/bin/cmcc_robot/install/speech_client:/usr/bin/cmcc_robot/install/pwm_touch:/usr/bin/cmcc_robot/install/point_process:/usr/bin/cmcc_robot/install/pixel2world_pose:/usr/bin/cmcc_robot/install/network:/usr/bin/cmcc_robot/install/headset_input:/usr/bin/cmcc_robot/install/claw_client:/usr/bin/cmcc_robot/install/ble:/usr/bin/cmcc_robot/install/a2dp:/usr/bin/cmcc_robot/install/follow_strategy:/opt/ros/foxy /usr/bin/cmake --install /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control
+[8.980s] Level 1:colcon.colcon_core.environment:checking '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control' for CMake module files
+[8.982s] Level 1:colcon.colcon_core.environment:checking '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control' for CMake config files
+[8.982s] Level 1:colcon.colcon_core.shell:create_environment_hook('robot_dog_motion_control', 'cmake_prefix_path')
+[8.983s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/hook/cmake_prefix_path.ps1'
+[8.987s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/hook/cmake_prefix_path.dsv'
+[8.990s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/hook/cmake_prefix_path.sh'
+[8.995s] Level 1:colcon.colcon_core.environment:checking '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib'
+[8.996s] Level 1:colcon.colcon_core.environment:checking '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/bin'
+[8.997s] Level 1:colcon.colcon_core.environment:checking '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/pkgconfig/robot_dog_motion_control.pc'
+[8.998s] Level 1:colcon.colcon_core.environment:checking '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/python3.8/site-packages'
+[8.999s] Level 1:colcon.colcon_core.environment:checking '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/bin'
+[9.001s] INFO:colcon.colcon_core.shell:Creating package script '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.ps1'
+[9.007s] INFO:colcon.colcon_core.shell:Creating package descriptor '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.dsv'
+[9.011s] INFO:colcon.colcon_core.shell:Creating package script '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.sh'
+[9.015s] INFO:colcon.colcon_core.shell:Creating package script '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.bash'
+[9.022s] INFO:colcon.colcon_core.shell:Creating package script '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.zsh'
+[9.028s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/colcon-core/packages/robot_dog_motion_control)
+[9.032s] Level 1:colcon.colcon_core.environment:create_environment_scripts_only(robot_dog_motion_control)
+[9.034s] Level 1:colcon.colcon_core.environment:checking '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control' for CMake module files
+[9.040s] Level 1:colcon.colcon_core.environment:checking '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control' for CMake config files
+[9.041s] Level 1:colcon.colcon_core.shell:create_environment_hook('robot_dog_motion_control', 'cmake_prefix_path')
+[9.043s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/hook/cmake_prefix_path.ps1'
+[9.046s] INFO:colcon.colcon_core.shell:Creating environment descriptor '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/hook/cmake_prefix_path.dsv'
+[9.048s] INFO:colcon.colcon_core.shell:Creating environment hook '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/hook/cmake_prefix_path.sh'
+[9.051s] Level 1:colcon.colcon_core.environment:checking '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib'
+[9.052s] Level 1:colcon.colcon_core.environment:checking '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/bin'
+[9.052s] Level 1:colcon.colcon_core.environment:checking '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/pkgconfig/robot_dog_motion_control.pc'
+[9.053s] Level 1:colcon.colcon_core.environment:checking '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/python3.8/site-packages'
+[9.054s] Level 1:colcon.colcon_core.environment:checking '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/bin'
+[9.057s] INFO:colcon.colcon_core.shell:Creating package script '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.ps1'
+[9.060s] INFO:colcon.colcon_core.shell:Creating package descriptor '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.dsv'
+[9.062s] INFO:colcon.colcon_core.shell:Creating package script '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.sh'
+[9.065s] INFO:colcon.colcon_core.shell:Creating package script '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.bash'
+[9.069s] INFO:colcon.colcon_core.shell:Creating package script '/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.zsh'
+[9.072s] Level 1:colcon.colcon_core.environment:create_file_with_runtime_dependencies(/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/colcon-core/packages/robot_dog_motion_control)
+[9.073s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:closing loop
+[9.074s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:loop closed
+[9.074s] DEBUG:colcon.colcon_parallel_executor.executor.parallel:run_until_complete finished with '0'
+[9.075s] DEBUG:colcon.colcon_core.event_reactor:joining thread
+[9.086s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.notify_send': Could not find 'notify-send'
+[9.086s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[9.086s] INFO:colcon.colcon_core.plugin_system:Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[9.086s] INFO:colcon.colcon_notification.desktop_notification:Sending desktop notification using 'notify2'
+[9.091s] DEBUG:colcon.colcon_notification.desktop_notification.notify2:Failed to initialize notify2: org.freedesktop.DBus.Error.ServiceUnknown: The name org.freedesktop.Notifications was not provided by any .service files
+[9.092s] DEBUG:colcon.colcon_core.event_reactor:joined thread
+[9.093s] INFO:colcon.colcon_core.shell:Creating prefix script '/root/cmcc_agent/skills/robot-dog-motion-control/install/local_setup.ps1'
+[9.095s] INFO:colcon.colcon_core.shell:Creating prefix util module '/root/cmcc_agent/skills/robot-dog-motion-control/install/_local_setup_util_ps1.py'
+[9.101s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/root/cmcc_agent/skills/robot-dog-motion-control/install/setup.ps1'
+[9.107s] INFO:colcon.colcon_core.shell:Creating prefix script '/root/cmcc_agent/skills/robot-dog-motion-control/install/local_setup.sh'
+[9.109s] INFO:colcon.colcon_core.shell:Creating prefix util module '/root/cmcc_agent/skills/robot-dog-motion-control/install/_local_setup_util_sh.py'
+[9.110s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/root/cmcc_agent/skills/robot-dog-motion-control/install/setup.sh'
+[9.114s] INFO:colcon.colcon_core.shell:Creating prefix script '/root/cmcc_agent/skills/robot-dog-motion-control/install/local_setup.bash'
+[9.115s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/root/cmcc_agent/skills/robot-dog-motion-control/install/setup.bash'
+[9.119s] INFO:colcon.colcon_core.shell:Creating prefix script '/root/cmcc_agent/skills/robot-dog-motion-control/install/local_setup.zsh'
+[9.121s] INFO:colcon.colcon_core.shell:Creating prefix chain script '/root/cmcc_agent/skills/robot-dog-motion-control/install/setup.zsh'

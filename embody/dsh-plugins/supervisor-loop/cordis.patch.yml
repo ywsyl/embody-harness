@@ -9,8 +9,10 @@
 #   真实 config）。这一对必须一致。
 #
 # 关着的行不会被装载，因此**不打**下面那份 config 的 schema 校验；真正生效的那份在
-# Supervisor/resident.patch.yml 里（那里必须给全 intervalMs / sessionId / maxSessionBytes /
-# sources —— 四个都是 required，缺一个就在装载时报 missing required value）。
+# Supervisor/resident.patch.yml 里（那里必须给全 intervalMs / firstTickDelayMs / sessionId /
+# maxSessionBytes / sources / cleanupScript —— 六个都是 required，缺一个就在装载时报
+# missing required value；两个例外：解释器名 python 有缺省值，modelProvider 可选
+# ——不配 = 不改模型路由）。
 
 - insert:
     - id: supervisor-loop

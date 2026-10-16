@@ -1,0 +1,4 @@
+# tsc -b 的编译产物与增量缓存。lib/ 仅在本包真被 profile boot 前由 tsc 生成；
+# typecheck 门也走 tsc -b（含引擎引用项目的 lib/types，那些由引擎各包 .gitignore 忽略）。
+lib/
+*.tsbuildinfo

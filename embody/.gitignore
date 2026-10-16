@@ -6,15 +6,22 @@ lib/
 __pycache__/
 *.pyc
 .venv/
-# 里程碑 0 验证用隔离 DSH_HOME（若放到仓库内）；真实 DSH_HOME 默认在 ~/.dsh
 .dsh-dev/
-# Python 侧运行时产物（configs/paths.py 的 ROOT_DIR 推导）：交互历史、视觉观察、
-# 任务目录等。每台机器各自生成，不入库。
-runtime_files/
-tasks/
-# 本机 shell 环境文件，内含真实 API key，永不入库（细则见 configs/.gitignore）。
-# 无斜杠的裸名在任意层级都匹配：它挪到 reference/ 之后同样拦得住。
-exp.bashrc
 
-./Communicator
-./tools
+# 无需入库的代码目录
+runtime_files/
+reference/
+test/
+
+# scripts/manual/
+
+# 本机凭据一律不入库。
+#   secret.env        模型服务参数与密钥（端点 / API key / 模型名）：这批值的唯一一处，
+#                     读者是 scripts/settings-seed.sh 与 scripts/role-daemon.sh（经 lib-local-env.sh）
+#   *.secret          由它派生的凭据留存
+#   .credentials.yaml credentials-local 的落点（$DSH_HOME/.credentials.yaml 的副本）
+#   .env.local        本机环境文件的另一种写法（名字恰为 `.env` 的由仓库根 .gitignore 管）
+secret.env
+*.secret
+.credentials.yaml
+.env.local

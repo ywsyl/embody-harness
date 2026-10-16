@@ -2,7 +2,9 @@
 #
 # 安装脚本把它写入 $DSH_HOME/profiles/supervisor/cordis.patch.yml。语义（与引擎一致）：
 # 这是 profile 层，位于 bundle 层（@deepseek-ai/dsh-base、@embody/dsh-rolebus、
-# @embody/dsh-supervisor-loop）之后，对已插入的行按 id 整块替换 config，后面的层胜出。
+# @embody/dsh-location-context、@embody/dsh-supervisor-loop、@embody/dsh-file-guard）之后，
+# 对已插入的行按 id 整块替换
+# config，后面的层胜出。
 # 因此人设字段（system-prompt 只认 personaPrefix / personaSuffix，没有 persona）与
 # rolebus 身份都必须整块重写，不是逐键合并。
 #
@@ -12,11 +14,15 @@
 # （@embody/dsh-supervisor-loop），那行由本 profile 之上的常驻叠加层
 # Supervisor/resident.patch.yml 打开（bundle 里插的是 disabled: true）。
 #
-# 角色职责边界见 Supervisor/execution_supervisor_implementation.md 与 reference/events.md。
+# 角色职责边界见 reference/agents/execution_supervisor_implementation.md 与 reference/events.md。
 
-# 人设文本不内联在 YAML 里，从 Supervisor/prompts/supervisor.md 读（与其余三个角色同一做法）：
+# 人设文本不内联在 YAML 里，从 Supervisor/prompts/ 整目录读：supervisor.md 打头，其余 .md
+# 按文件名序以 `---` 分隔符接在后面（与其余三个角色同一做法）。**加文档 = 往那个目录里放
+# 文件**，本行不用改；目录里的文档全部进上下文。
 #   - `!!js` 是 Loader 的配置表达式（见 docs/cordis-primer），在装载本行时求值一次；
-#     `getBuiltinModule` 是在 ESM 函数体里同步拿到 node 内建模块的方式（无 require）。
+#     求值方式是对表达式做 `eval`（vendor/loader/src/config/utils.ts），所以可以是一段
+#     立即执行的箭头函数。`>-` 折叠块把它写成多行，折行时按空格拼接，故语句必须带分号。
+#   - `getBuiltinModule` 是在 ESM 函数体里同步拿到 node 内建模块的方式（无 require）。
 #   - 路径相对引擎根（= 启动 dsh 时的工作目录）；所以必须从引擎根启动，比如
 #     scripts/role-daemon.sh。
 #   - 文件缺失即 ENOENT 启动失败（fail loud），不会静默退化成空人设。
@@ -24,29 +30,37 @@
   config:
     # 关掉引擎硬编码的 harness:identity 首句（否则它会拼在人设前面）。
     includeHarnessIdentity: false
-    personaPrefix: !!js process.getBuiltinModule('node:fs').readFileSync('embody/Supervisor/prompts/supervisor.md', 'utf8').trim()
+    personaPrefix: !!js >-
+      (() => {
+        const fs = process.getBuiltinModule('node:fs');
+        const dir = 'embody/Supervisor/prompts';
+        const persona = 'supervisor.md';
+        const rest = fs.readdirSync(dir).filter(name => name.endsWith('.md') && name !== persona).sort();
+        return [persona, ...rest]
+          .map(name => fs.readFileSync(dir + '/' + name, 'utf8').trim())
+          .join('\n\n---\n\n');
+      })()
 
 # 本角色**只发不收**：事件目录里没有一条 target 为 supervisor 的条目，所以它不接任何入站
 # 事件，也不叠 rolebus.resident（那一行是给「靠事件唤醒」的角色用的，见 resident.ts）。
-# peers 必须写全 interactor / orchestrator / planner 三个：
-# 目录里 source 为 supervisor 的四条事件，target 分别是 interactor（observe_event）、
-# orchestrator（robot_status_update）与 planner（planner_ 前缀两条），而 rolebus 装配时
-# 要求每条事件的 target 都在 peers 内，漏一个直接 boot 失败。两个版本（旧版
+# peers 必须写全本角色每条发件条目的 target：目录里 source 为 supervisor 的两条事件，
+# target 只有 interactor（observe_event）与 planner（planner_observe_event）——监督器的事件
+# 只发这两个角色，它不与编排器互发，所以 orchestrator 不在 peers 里。
+# rolebus 装配时要求每条事件的 target 都在 peers 内，漏一个直接 boot 失败。两个版本（旧版
 # interactor+orchestrator / 合并版 planner）不同时启动，投哪一版由人设交代。
 - id: rolebus
   config:
     role: supervisor
     peers:
       - interactor
-      - orchestrator
       - planner
     transport: file
 
-# 自定义工具（configs/agent_plugin.py 里的白名单）本角色没有：监督器手里只有 rolebus
+# 自定义工具（configs/agents.py 里的白名单）本角色没有：监督器手里只有 rolebus
 # 按目录生成的 rolebus_send_*。@embody/dsh-tools-bridge 与其他角色一样装在本 profile 的
 # bundle 列表里（安装脚本对所有角色一视同仁），但本 profile **不给它角色身份**——role 保持
 # bundle 层的中性默认 unset，apply 当场返回：不注册任何工具，也不起 Python 桥。所以这里
-# 没有覆盖行，configs/agent_plugin.py 的 ROLE_TOOLS 里也没有 supervisor 键。
+# 没有覆盖行，configs/agents.py 的 ROLE_TOOLS 里也没有 supervisor 键。
 
 # 工作区指令（AGENTS.md / CLAUDE.md 等）不拼进上下文：角色人设的唯一来源是本角色
 # profile 里的人设文件，不让仓库里随手放的 AGENTS.md 混进来（见 agent-instructions 的
@@ -73,13 +87,80 @@
 - id: tool-todo
   disabled: true
 
+# dsh-base 默认那整套工具对监督器全是死重：它唯一该用的工具是 rolebus 按事件目录生成的
+# rolebus_send_observe_event（发给 interactor）与 rolebus_send_planner_observe_event。2026-10-12
+# 拿平台网关抓的一通真实调用量过：18 个工具的 schema 占 15.4KB、外加 5KB 的 skill 目录快照，
+# 每次请求都白背（见 reference/out.txt）。这些插件都是**消费者**（各自 inject tools / shell / fs /
+# jobs / web 等服务，没有别的插件 inject 它们），所以在这里 disabled 只收回工具与它们自己的
+# 提示词段，不影响别的服务。
+#   每条都必须是 dsh-base 里**已有的行 id**：profile 层只能按 id 覆盖，不能 insert。
+- id: tool-bash            # bash
+  disabled: true
+- id: tool-pwsh            # pwsh（同属 shell，本机没起，写在这里是为了与 tool-bash 对称）
+  disabled: true
+- id: tool-fs              # read / write / edit / read_image
+  disabled: true
+- id: tool-fs-search       # glob / grep
+  disabled: true
+- id: tool-jobs            # job_list / job_output / job_kill
+  disabled: true
+- id: tool-goal            # create_goal / get_goal / update_goal
+  disabled: true
+- id: tool-web             # web_search / web_fetch
+  disabled: true
+- id: tool-skill           # skill 工具 + 那份 skill 目录快照
+  disabled: true
+- id: plan-mode            # exit_plan_mode 与其提示词段
+  disabled: true
+
 # 上下文预算：本角色是唯一一个「跑不完的回合」——每 intervalMs 加一轮，加到自己进程退出。
 # dsh-base 已经挂了 dsh-compaction-basic，但一行配置都没给，默认是窗口的 80% 才压缩
 # （路由声明 1,000,000 → 80 万 token 才第一次压，之前每轮请求都扛着整段历史）。
-# 这里把它压到「保留最近约 20 轮原文、总上下文到 50k token 就压」（数值见
-# configs/configs.py 的 Supervisor 一节，经进程环境过桥，与 intervalMs 同一套）。
+# 这里把它压到「总上下文到 30k token 就压」（数值见 configs/configs.py 的 Supervisor 一节，
+# 经进程环境过桥，与 intervalMs 同一套）。**只调一个参数**：上限在 configs 里，
+# retainTokens 由 supervisor_compact_retain_tokens() 从上限扣掉固定开销余量现算。
 # 两个值不能随便改：retainTokens 必须小于阈值（装载时校验），阈值只有「占窗口的比例」写法。
 - id: compaction-basic
   config:
     thresholdRatio: !!js Number(process.env.SUPERVISOR_COMPACT_THRESHOLD_RATIO)
     retainTokens: !!js Number(process.env.SUPERVISOR_COMPACT_RETAIN_TOKENS)
+
+# 【支持地点清单】每轮注入（@embody/dsh-location-context）：注册 `agent/pre-step` 的前置监听器，
+# 在**每一轮的第一步**把清单插在前面。本角色的一轮由常驻叠加层里的定时观察循环唤醒
+# （../dsh-plugins/supervisor-loop 的 followup），所以排在前面的就是这份清单，后面才是【定时观察】。
+#
+# 为什么本角色要它：判一条任务里的地点是否合法要拿真清单，而本角色的工具面里没有 waypoint_nav
+# （上面 disabled 的那批工具里也没有列地点的），清单的另一条路是那个工具自己的说明。每轮重发而不是
+# 只在首轮：上面那行 compaction-basic 会压掉旧轮次，而清单是本轮判断的输入。
+#
+# list 的正文由 configs/configs.py 的 supported_locations_text() 渲染（名字仍只由
+# load_supported_locations() 抽取），经 scripts/role-daemon.sh 的 supervisor 支过桥进进程环境，
+# `!!js` 在装载本行时求值一次。**启动时取一次是刻意的**：waypoint_nav 的工具说明（装载时注入）也是
+# 这个新鲜度，两条路不同步会出现「清单里有、调它却被硬拒」的窗口期；代价是 landmarks.json 改了要
+# 重起本角色。取不到（变量没设置）在装载时报 missing required value —— 不编默认值。
+# bundle 层插的是 disabled: true，打开它的地方只有这里；**按 id 覆盖，不再 insert 一行**（profile
+# 层与 bundle 层各 insert 一次会让 Loader 报 duplicate loader entry id，见 Interactor 那份的同款注释）。
+- id: location-context
+  disabled: false
+  config:
+    list: !!js process.env.SUPERVISOR_SUPPORTED_LOCATIONS
+
+# 文件围栏（@embody/dsh-file-guard）：用户 2026-10-13 定的规矩 —— 交互器 / 编排器 / 监督器 /
+# planner 四个角色不许用命令行类工具读写项目根（<引擎根>/embody）下的文件，唯一例外是
+# runtime_files；plugin_tools/available_tools.yaml 里的工具不在这条规矩里。与本文件里那一批
+# 「工具面全关」是**同一条规矩的两道**：那一批是**第一道**（可调用面的裁剪，上面 tool-bash /
+# tool-fs 那些行），它把监督器 18 个工具的 schema 一并省掉；这一行是**第二道**——那些行哪天被
+# 改回来（比如为了省 token 之外的理由重新打开 fs），围栏照样按路径挡着。改其中一道别忘了另一道。
+# 与其余三个角色那一行同值同注释：围栏是这四个角色共同的身份边界，不是某个角色的特征。
+#
+# allowedRoot 从进程环境来：configs/paths.py 的 RUNTIME_DIR，由 scripts/role-daemon.sh
+# **无条件**过桥成 ROLE_FILE_GUARD_ALLOWED_ROOTS。本机临时目录（/tmp、os.tmpdir()）由插件自己
+# 加上、不过桥（与引擎沙箱的 writableRoots 同一口径）。
+#
+# bundle 层插的是 disabled: true，打开它的地方只有各 profile 这里；**按 id 覆盖，不再 insert
+# 一行**（两个 insert 会让 Loader 报 duplicate loader entry id，见上面 location-context 那段）。
+# 取不到那个变量在装载时报 missing required value —— 不编默认值。
+- id: file-guard
+  disabled: false
+  config:
+    allowedRoot: !!js process.env.ROLE_FILE_GUARD_ALLOWED_ROOTS

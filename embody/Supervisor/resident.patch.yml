@@ -21,27 +21,55 @@
       - planner
     transport: file
 
-# 定时观察：每隔 intervalMs 读一遍下面两个源，拼成一轮交给本角色 agent 判断。
+# 定时观察：每隔 intervalMs 读一遍下面三个源，拼成一轮交给本角色 agent 判断。
 #   - intervalMs 的秒数唯一事实源是 configs/configs.py 的 SUPERVISOR_INTERVAL；cordis 的配置
 #     层读不到 Python，启动脚本（scripts/role-daemon.sh）把它换算成毫秒放进进程环境，这里只
 #     取那个值。`!!js` 是 Loader 的配置表达式（见 docs/cordis-primer），装载本行时求值一次；
 #     变量缺失时得到 NaN，插件在装载时就会以「intervalMs 必须是正整数毫秒」报错，不会退化成
 #     某个内置节拍。
+#   - firstTickDelayMs 是**首轮延迟**（2026-09-24）：本角色一起来就会读到盘上那三份观测，
+#     而它们是**上一轮**留下的（组件的心跳文件在盘上、内容与时刻都还是上一轮的），立刻就报
+#     会把「上一轮的账」当成这一轮的断流（真机实测报过「通信链路中断…距今约 3 小时」）。
+#     等过一个最长的产出周期再开第一轮，那时观测器已把本轮的内容覆盖写上去。取值唯一事实源
+#     是 configs/configs.py 的 SUPERVISOR_FIRST_TICK_DELAY_SEC，与别处同一条过桥路径；
+#     延迟发生在**本进程的定时器里**，不是启动脚本的 sleep —— 三个角色的进程都照常立刻起来，
+#     被推迟的只是监督器问模型的第一次（此前那个 sleep 排在角色拉起循环里，把启动顺序也绑上了）。
 #   - sessionId 是本角色会话的**基础 id**（重启续接的是它这一份）；同一个 DSH_HOME 下同时
 #     只能有一个常驻进程持有它，第二个会因会话写租约失败而收不到任何一轮。运行期日志到
 #     maxSessionBytes 会轮转成 `<基础 id>.<时间戳>` 的新会话（同一 id 建不回来，见插件头部）。
 #   - maxSessionBytes 的 MB 数唯一事实源是 configs/configs.py 的 SUPERVISOR_SESSION_MAX_MB，
 #     与 intervalMs 同一条过桥路径。量的是**磁盘上那份日志的压缩后物理字节数**（引擎的
 #     `stat().sizeBytes`，不是 token 也不是解压后大小）；到量就换一份新会话。
-#   - path 相对启动工作目录（= 引擎根，与人设 !!js 同一约定），所以要从引擎根启动。
+#   - sources 的三个 path 唯一事实源是 configs/paths.py 的三条 RUNTIME_*（视觉观测 / 本体状态 /
+#     运动状态），与上面几个值同一条过桥路径（role-daemon.sh 的 cmcc_path）。传过来的是**绝对
+#     路径**，所以不再受启动工作目录影响；变量缺失时插件在装载时以「path 缺失」报错，静默读成
+#     空文件那种失败不会发生。
+#   - cleanupScript 是每轮**旁路**跑一遍的 runtime_files 体积清理脚本（Observer/cleanup.py），
+#     路径唯一事实源是 configs/paths.py 的 RUNTIME_CLEANUP_SCRIPT，同一条过桥路径；文件不存在时
+#     插件在装载时报错。**不经过大模型**：插件起一个子进程、只把结论记成一行日志，本轮交给模型的
+#     观测输入一个字节都不因此改变。判据（两档水位）在 configs/configs.py、可删名单在
+#     Observer/cleanup.py，插件里没有一条清理规则。
 - id: supervisor-loop
   disabled: false
   config:
     intervalMs: !!js Number(process.env.SUPERVISOR_INTERVAL_MS)
+    firstTickDelayMs: !!js Number(process.env.SUPERVISOR_FIRST_TICK_DELAY_MS)
     sessionId: supervisor-loop
     maxSessionBytes: !!js Number(process.env.SUPERVISOR_SESSION_MAX_BYTES)
     sources:
+      # 名字是模型可见的段标题（每轮渲染成 `## <名字>（<路径>）`），顺序即渲染顺序。
       - name: 视觉观察
-        path: embody/runtime_files/vision_obs.yaml
+        path: !!js process.env.SUPERVISOR_VISION_OBS
       - name: 本体状态
-        path: embody/runtime_files/robot_status.yaml
+        path: !!js process.env.SUPERVISOR_ROBOT_STATUS
+      - name: 运动状态
+        path: !!js process.env.SUPERVISOR_MOTION_STATUS
+    cleanupScript: !!js process.env.SUPERVISOR_CLEANUP_SCRIPT
+    # 思考模式：值来自 configs/agents.py 的 ROLE_THINKING（经 role-daemon.sh 过桥成进程环境）。
+    # 非空 = 本角色改走那条声明了推理档位的镜像路由，而"不选档位"在线上就是 thinking 的关闭值
+    # （见 configs/settings-model.yaml 的 robot-gateway-nothink）；空串 = 不改路由，照走
+    # agent-default-model 的 robot-gateway，请求体一字不改、思考开着。
+    # **本字段只在 supervisor-loop 这一行，不放上面 rolebus 那一行**：本角色的 rolebus 不是
+    # resident（它不收入站事件），而 rolebus 的 modelProvider 配了不常驻会当场 fail loud；
+    # 本角色的 agent 是 supervisor-loop 建的，路由覆盖这个口在其 Config 上。
+    modelProvider: !!js (process.env.ROLE_MODEL_PROVIDER ?? '')

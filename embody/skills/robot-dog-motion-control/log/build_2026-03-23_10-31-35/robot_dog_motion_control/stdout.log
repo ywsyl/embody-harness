@@ -1,0 +1,7 @@
+[ 50%] Built target client
+[100%] Built target server
+-- Install configuration: ""
+-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/server
+-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/client
+-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/start.sh
+-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/motion.sh

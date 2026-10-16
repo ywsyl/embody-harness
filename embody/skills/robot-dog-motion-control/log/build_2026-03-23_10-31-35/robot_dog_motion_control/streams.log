@@ -1,0 +1,17 @@
+[0.017s] Invoking command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/foxy /usr/bin/cmake --build /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control -- -j8 -l8
+[0.157s] [ 50%] Built target client
+[0.220s] [100%] Built target server
+[0.241s] Invoked command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/foxy /usr/bin/cmake --build /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control -- -j8 -l8
+[0.264s] Invoking command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/foxy /usr/bin/cmake --install /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control
+[0.277s] -- Install configuration: ""
+[0.277s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/server
+[0.277s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/client
+[0.278s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/start.sh
+[0.278s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/motion.sh
+[0.278s] CMake Error at cmake_install.cmake:77 (file):
+[0.278s]   file INSTALL cannot find
+[0.278s]   "/root/cmcc_agent/skills/robot-dog-motion-control/scripts/test.sh": No such
+[0.278s]   file or directory.
+[0.278s] 
+[0.278s] 
+[0.280s] Invoked command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control' returned '1': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/foxy /usr/bin/cmake --install /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control

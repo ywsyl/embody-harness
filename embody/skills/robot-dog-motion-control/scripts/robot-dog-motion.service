@@ -1,0 +1,29 @@
+[Unit]
+Description=Robot Dog Motion Control Socket Service
+# 服务依赖 eth0 上的 DDS 发现：network.target 只保证网络子系统起来了，不保证网卡已拿到
+# IP。若在网卡就绪前启动，CycloneDDS 绑不上 eth0——服务照常打印「已启动」但发布的 Twist
+# 无人接收（狗不动且不报错）。network-online.target 等网络真正在线，本机由
+# systemd-networkd-wait-online.service（enabled）提供。
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# 服务脚本声明：用本机 agent 侧（cmcc_agent）的 start.sh，不是 .openclaw 下的旧副本。
+# 该 start.sh 末行是 `exec server`，主进程即 server，SIGTERM 直达、优雅退出可走到。
+ExecStart=/root/cmcc_agent/skills/robot-dog-motion-control/scripts/start.sh
+# always：rclcpp::spin() 正常返回会让 main 以 0 退出，on-failure 不会重启，
+# 服务会永久停在停止状态。systemctl stop 属主动停止、不受 Restart 影响，不妨碍维护。
+Restart=always
+RestartSec=5
+User=root
+WorkingDirectory=/root/cmcc_agent/skills/robot-dog-motion-control/scripts
+StandardOutput=journal
+StandardError=journal
+# start.sh 末行是 `exec "$SCRIPT_DIR/server"`，主进程即 server 本身，所以 SIGTERM 会直达
+# server，优雅退出（唤醒阻塞中的客户端）能走到。若哪天把 exec 去掉，这里必须改成
+# KillMode=mixed，否则 server 收不到信号，还会被 systemd 遗弃成孤儿进程。
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

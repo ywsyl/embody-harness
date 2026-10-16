@@ -1,0 +1,18 @@
+# @embody/dsh-task-context —— 待做任务清单注入 bundle 补丁。
+#
+# 分层语义（与引擎一致）：每个 bundle 的 cordis.patch.yml 是一层，后面各层按行(id)整块替换
+# 它的键。本层只负责「插入 task-context 行」，**值是关着的**（disabled: true）：
+#
+#   注什么由 `path` 决定，而路径是 configs/paths.py 的部署值（经 scripts/role-daemon.sh 过桥），
+#   这一层给不出来。关着的行不会被装载，因此**不打**下面这份 config 的 schema 校验；真正生效的
+#   那份在 Orchestrator/cordis.patch.yml（profile 层，`disabled: false` + 取环境变量的 path）。
+#   两处必须一致：本层插的行与 profile 层覆盖的行是同一个 id。
+#
+# 只给编排器装（scripts/rolebus-setup.sh 里按角色 ensure_bundle）：清单是交互器写、编排器读的，
+# 读的方式从「task_list 工具按需读」改成「每轮注入整份原文」的就是编排器这一侧；交互器手里仍有
+# task_list 工具，不需要注入。
+
+- insert:
+    - id: task-context
+      name: '@embody/dsh-task-context'
+      disabled: true

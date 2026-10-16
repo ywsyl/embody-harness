@@ -1,0 +1,64 @@
+-- Found ament_cmake: 0.9.12 (/opt/ros/foxy/share/ament_cmake/cmake)
+-- Using PYTHON_EXECUTABLE: /usr/bin/python3
+-- Found rclcpp: 2.4.3 (/opt/ros/foxy/share/rclcpp/cmake)
+-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+-- Found rosidl_adapter: 1.3.1 (/opt/ros/foxy/share/rosidl_adapter/cmake)
+-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+-- Found rmw_implementation_cmake: 1.0.4 (/opt/ros/foxy/share/rmw_implementation_cmake/cmake)
+-- Using RMW implementation 'rmw_cyclonedds_cpp' as default
+-- Found geometry_msgs: 2.0.5 (/opt/ros/foxy/share/geometry_msgs/cmake)
+-- Found ament_lint_auto: 0.9.8 (/opt/ros/foxy/share/ament_lint_auto/cmake)
+-- Added test 'copyright' to check source files copyright and LICENSE
+-- Added test 'cppcheck' to perform static code analysis on C / C++ code
+-- Configured cppcheck include dirs: 
+-- Configured cppcheck exclude dirs and/or files: 
+-- Added test 'cpplint' to check C / C++ code against the Google style
+-- Configured cpplint exclude dirs and/or files: 
+-- Added test 'flake8' to check Python code syntax and style conventions
+-- Added test 'lint_cmake' to check CMake code style
+-- Added test 'pep257' to check Python code against some of the style conventions in PEP 257
+-- Added test 'uncrustify' to check C / C++ code style
+-- Configured uncrustify additional arguments: 
+-- Added test 'xmllint' to check XML markup files
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control
+[35m[1mScanning dependencies of target client[0m
+[ 25%] [32mBuilding CXX object CMakeFiles/client.dir/src/client.cpp.o[0m
+[ 50%] [32m[1mLinking CXX executable client[0m
+[ 50%] Built target client
+[35m[1mScanning dependencies of target server[0m
+[ 75%] [32mBuilding CXX object CMakeFiles/server.dir/src/server.cpp.o[0m
+[01m[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:[m[K In constructor ‘[01m[KTwistControllerSocketServer::TwistControllerSocketServer()[m[K’:
+[01m[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:310:12:[m[K [01;35m[Kwarning: [m[K‘[01m[KTwistControllerSocketServer::elapsed_time_[m[K’ will be initialized after [[01;35m[K-Wreorder[m[K]
+  310 |     double [01;35m[Kelapsed_time_[m[K;
+      |            [01;35m[K^~~~~~~~~~~~~[m[K
+[01m[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:302:9:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kint TwistControllerSocketServer::server_fd_[m[K’ [[01;35m[K-Wreorder[m[K]
+  302 |     int [01;35m[Kserver_fd_[m[K;
+      |         [01;35m[K^~~~~~~~~~[m[K
+[01m[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:27:5:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K-Wreorder[m[K]
+   27 |     [01;35m[KTwistControllerSocketServer[m[K()
+      |     [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K
+[100%] [32m[1mLinking CXX executable server[0m
+[100%] Built target server
+-- Install configuration: ""
+-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/server
+-- Set runtime path of "/root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/server" to ""
+-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/client
+-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/scripts/start.sh
+-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/scripts/motion.sh
+-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/ament_index/resource_index/package_run_dependencies/robot_dog_motion_control
+-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/ament_index/resource_index/parent_prefix_path/robot_dog_motion_control
+-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/ament_prefix_path.sh
+-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/ament_prefix_path.dsv
+-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/path.sh
+-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/path.dsv
+-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.bash
+-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.sh
+-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.zsh
+-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.dsv
+-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.dsv
+-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/ament_index/resource_index/packages/robot_dog_motion_control
+-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/cmake/robot_dog_motion_controlConfig.cmake
+-- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/cmake/robot_dog_motion_controlConfig-version.cmake
+-- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.xml

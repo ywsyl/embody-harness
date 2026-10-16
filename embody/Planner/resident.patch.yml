@@ -16,3 +16,10 @@
       - supervisor
     transport: file
     resident: true
+    # 思考模式：值来自 configs/agents.py 的 ROLE_THINKING（经 role-daemon.sh 过桥成进程环境）。
+    # 非空 = 本角色改走那条声明了推理档位的镜像路由，而"不选档位"在线上就是 thinking 的关闭值
+    # （见 configs/settings-model.yaml 的 robot-gateway-nothink）；空串 = 不改路由，照走
+    # agent-default-model 的 robot-gateway，请求体一字不改、思考开着。
+    # `?? ''` 防的是手工 `pnpm dsh --profile … --patch …` 绕过 role-daemon 时取不到这个变量
+    # （同 ORCHESTRATOR_TASK_LIST_PATH 那条已接受的性质）：那种跑法下思考回到默认，不影响常驻启动。
+    modelProvider: !!js (process.env.ROLE_MODEL_PROVIDER ?? '')

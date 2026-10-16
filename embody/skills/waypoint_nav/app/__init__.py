@@ -1,0 +1,2 @@
+"""Robot navigation HTTP service."""
+

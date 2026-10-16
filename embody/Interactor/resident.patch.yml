@@ -2,11 +2,21 @@
 #
 # 为什么单独一份文件而不是直接写进 Interactor/cordis.patch.yml：常驻是**启动形态**，不是
 # 角色身份。写进 profile 层的话，任何一次性 headless 启动也会顺带建出一个永不唤醒的
-# agent。这条差异由 scripts/interactor-daemon.sh 用 --patch 显式表达。
+# agent。这条差异由 scripts/role-daemon.sh 用 --patch 显式表达。
 #
 # 叠加层同样是「按 id 整块替换 config」，所以 rolebus 行要整块重写：role / peers /
-# transport 必须与 Interactor/cordis.patch.yml 里的一致，本文件只多 resident: true。
+# transport 必须与 Interactor/cordis.patch.yml 里的一致。**常驻形态自己的字段只写在本文件**
+# （resident / startupWake / modelProvider）——三者的消费者都是那个常驻 agent，写进身份层会
+# 让一次性 headless 启动被 rolebus 的 apply 当场拒掉。
 # 这份重复必须与 Interactor/cordis.patch.yml 逐字一致：叠加后的 role/peers 仍须是本角色的。
+#
+# startupWake 是**常驻形态**的一部分，所以只写在这里、不写进身份层：一次性试跑没有常驻
+# 装配去发这条消息，rolebus 的 apply 见到「配了 startupWake 却不 resident」会 fail loud。
+# 文本交代「本进程刚起来、按人设【开机自查】一节处理」，**外加本轮要问用户的那批任务**——
+# 后者是代码挑的（plugin_tools/task_board.py 的 boot_check_text：有 interrupted 就只给
+# interrupted，否则给 pending / stopped），经 scripts/role-daemon.sh 过桥成
+# INTERACTOR_BOOT_TASKS。开机先问哪一批不随模型漂，做法（怎么问、怎么听答、怎么写回）仍在
+# Interactor/prompts/ 里。全项目只有本角色配 startupWake：其余角色开机直接待机，由事件唤醒。
 - id: rolebus
   config:
     role: interactor
@@ -15,3 +25,14 @@
       - supervisor
     transport: file
     resident: true
+    startupWake: !!js >-
+      (() => { const tasks = (process.env.INTERACTOR_BOOT_TASKS ?? '').trim();
+      const head = '本进程刚拉起，按人设【开机自查】一节处理。';
+      return tasks === '' ? head : `${head}\n${tasks}`; })()
+    # 思考模式：值来自 configs/agents.py 的 ROLE_THINKING（经 role-daemon.sh 过桥成进程环境）。
+    # 非空 = 本角色改走那条声明了推理档位的镜像路由，而"不选档位"在线上就是 thinking 的关闭值
+    # （见 configs/settings-model.yaml 的 robot-gateway-nothink）；空串 = 不改路由，照走
+    # agent-default-model 的 robot-gateway，请求体一字不改、思考开着。
+    # `?? ''` 防的是手工 `pnpm dsh --profile … --patch …` 绕过 role-daemon 时取不到这个变量
+    # （同 ORCHESTRATOR_TASK_LIST_PATH 那条已接受的性质）：那种跑法下思考回到默认，不影响常驻启动。
+    modelProvider: !!js (process.env.ROLE_MODEL_PROVIDER ?? '')

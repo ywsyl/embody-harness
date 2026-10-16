@@ -6,17 +6,21 @@
 #
 # 安装脚本把它写入 $DSH_HOME/profiles/planner/cordis.patch.yml。语义（与引擎一致）：
 # 这是 profile 层，位于 bundle 层（@deepseek-ai/dsh-base、@embody/dsh-rolebus、
-# @embody/dsh-tools-bridge）之后，对已插入的行按 id 整块替换 config，后面的层胜出。
+# @embody/dsh-tools-bridge、@embody/dsh-file-guard）之后，对已插入的行按 id 整块替换 config，
+# 后面的层胜出。
 # 因此人设字段（system-prompt 只认 personaPrefix / personaSuffix，没有 persona）与
 # rolebus 身份都必须整块重写，不是逐键合并。
 #
 # 本角色可见的原生工具面与身份边界见本文件末尾的裁剪清单；自定义工具清单是
-# configs/agent_plugin.py 的 PLANNER_TOOLS，由下方的 tools-bridge 行注册。
+# configs/agents.py 的 PLANNER_TOOLS，由下方的 tools-bridge 行注册。
 
-# 人设文本不内联在 YAML 里，从 Planner/prompts/planner.md 读（与 Interactor /
-# Orchestrator 同一做法）：
+# 人设文本不内联在 YAML 里，从 Planner/prompts/ 整目录读：planner.md 打头，其余 .md
+# 按文件名序以 `---` 分隔符接在后面（现在是 harness-executor.md；与其余三个角色同一做法）。
+# **加文档 = 往那个目录里放文件**，本行不用改；目录里的文档全部进上下文。
 #   - `!!js` 是 Loader 的配置表达式（见 docs/cordis-primer），在装载本行时求值一次；
-#     `getBuiltinModule` 是在 ESM 函数体里同步拿到 node 内建模块的方式（无 require）。
+#     求值方式是对表达式做 `eval`（vendor/loader/src/config/utils.ts），所以可以是一段
+#     立即执行的箭头函数。`>-` 折叠块把它写成多行，折行时按空格拼接，故语句必须带分号。
+#   - `getBuiltinModule` 是在 ESM 函数体里同步拿到 node 内建模块的方式（无 require）。
 #   - 路径相对引擎根（= 启动 dsh 时的工作目录）；所以必须从引擎根启动，比如
 #     scripts/role-daemon.sh。
 #   - 文件缺失即 ENOENT 启动失败（fail loud），不会静默退化成空人设。
@@ -24,14 +28,23 @@
   config:
     # 关掉引擎硬编码的 harness:identity 首句（否则它会拼在人设前面）。
     includeHarnessIdentity: false
-    personaPrefix: !!js process.getBuiltinModule('node:fs').readFileSync('embody/Planner/prompts/planner.md', 'utf8').trim()
+    personaPrefix: !!js >-
+      (() => {
+        const fs = process.getBuiltinModule('node:fs');
+        const dir = 'embody/Planner/prompts';
+        const persona = 'planner.md';
+        const rest = fs.readdirSync(dir).filter(name => name.endsWith('.md') && name !== persona).sort();
+        return [persona, ...rest]
+          .map(name => fs.readFileSync(dir + '/' + name, 'utf8').trim())
+          .join('\n\n---\n\n');
+      })()
 
 # 本角色**只收不发**：peers 只有监督器（第三方事件的源），目录里没有 `source: planner` 的
 # 条目，因此手里一个 rolebus_send_* 工具都没有。这不是配置漏项 —— 合并后交互器与编排器
 # 之间的四条交接事件没有了收发双方，「只收不发」是它的设计形态，rolebus 的装配校验因此
 # 放宽为「角色名要出现在目录里」而不是「要有发件条目」（见 dsh-plugins/rolebus/src/index.ts）。
-# 外部入站事件有四条：supervisor 的 observe_event / robot_status_update、
-# cloud 的 cloud_content_update / cloud_status_update，各有一条 planner_ 前缀的同义条目。
+# 外部入站事件有两条：supervisor 的 observe_event、
+# cloud 的 cloud_update（update / stop 两个动作都走它），各有一条 planner_ 前缀的同义条目。
 - id: rolebus
   config:
     role: planner
@@ -39,9 +52,9 @@
       - supervisor
     transport: file
 
-# 自定义工具的注册方：装载时按 role 取 configs/agent_plugin.py 的 PLANNER_TOOLS 白名单
-# （speak / speak_listen / do_action / look / waypoint_nav / move —— 交互器与编排器两份
-# 白名单的并集），经 Python 桥逐条注册进本 profile 的工具表，调用时再经桥转发给
+# 自定义工具的注册方：装载时按 role 取 configs/agents.py 的 PLANNER_TOOLS 白名单
+# （它与交互器 / 编排器那两份互有出入，不是并集；清单只写在 configs/agents.py），
+# 经 Python 桥逐条注册进本 profile 的工具表，调用时再经桥转发给
 # plugin_tools 的实现。role 与上面 rolebus 的 role 同值——两处都表示「本 profile 是哪个
 # 角色」，只是各自服务不同的能力（事件收发 / 工具注册）。
 # python 是跑桥的解释器；桥依赖 PyYAML（plugin_tools/requirements.txt）。
@@ -75,11 +88,65 @@
 # （人设里的语音工具），引擎的结构化提问（ask_user_question）会另开一条不播报的问答通道，
 # 两套并存时用户听到的和模型等到的对不上。interactor / orchestrator 两份旧 profile 也都
 # 禁了这一行。
+# 两条例外（下面 tool-bash / tool-pwsh 与文件末尾的 file-guard）：用户 2026-10-13 定的文件
+# 围栏，四个角色一致（本角色是那两个旧角色的合并版，那份规矩它也照受）。
 - id: user-questions
   disabled: true
 
-# 任务跟踪的归属是 plugin_tools/task_board.py 那份待做清单（写好落 runtime_files/
-# task_board.yaml），不是会话内的 todo_write —— 两者并存时模型可能把本该进待做清单的状态
-# 写进自己的 todo，两边各留一份再漂移。两个旧角色的 profile 都禁这一行，本角色同样禁。
+# 任务跟踪的归属是 plugin_tools/task_board.py 那份待做清单（落 runtime_files/tasks/），
+# 不是会话内的 todo_write —— 两者并存时模型可能把本该进待做清单的状态写进自己的 todo，两边
+# 各留一份再漂移。那份清单归交互器与编排器两家：它们的改动都装在事件（task_update_int /
+# task_update_orc）的 items 里、由唯一的写者 plugin_tools/task_manager.py 落盘，本角色不参与
+# （工具面里没有 task_list，也没有任何直接写清单的工具）。两个旧角色的 profile 都禁这一行，
+# 本角色同样禁。
 - id: tool-todo
   disabled: true
+
+# 命令行类工具（bash / pwsh）对本角色整个关闭。**2026-10-13 用户定的规矩**：交互器 / 编排器 /
+# 监督器 / planner 四个角色不许用命令行类工具读写项目根（<引擎根>/embody）下的文件，唯一例外
+# 是 runtime_files；plugin_tools/available_tools.yaml 里的那些工具不在这条规矩里（它们是角色的
+# 正业，各自按需要碰文件，走 Python 侧自己的路）。
+# 命令行挡在**整个工具**这一档，不是「按路径放行」：命令文里的路径没法逐条判（管道、重定向、
+# `python3 -c`、变量拼出来的路径都能绕过路径检查）。PTC 下这一行的效果是 SDK 里没有 bash 这个
+# 绑定，程序里写 `await tools.bash(…)` 报未知工具。
+#
+# 这是围栏的第一道（可调用面的裁剪）。第二道是 dsh-plugins/file-guard（本文件末尾那行）：
+# 它按路径判 fs 家族（read / write / edit / read_image / glob / grep），并且**把这两个名字再拒
+# 一次**。两道都要，因为挡的不是同一件事——这一行是「本角色没有命令行」，那一句是「就算这一行
+# 哪天被改回来，也不许用」。改其中一道别忘了另一道。
+#
+# 代价（明写）：本角色从此没有任何取当前时刻的路子——没有命令行，人设里也没有定时提醒那一节
+# （它不发 schedule_*，那三件套只在交互器那一份 profile 里），工具白名单是空的、没有
+# robot_state。哪天它要用到绝对时刻，得先给它一条路，而不是把这一行改回来。
+# 交互器那一份记的是同一条规矩的另一种代价（它有 robot_state，改用 system 段）。
+- id: tool-bash
+  disabled: true
+- id: tool-pwsh
+  disabled: true
+
+# 联网检索（web_search）不给本角色：关的是 tool-web 这一行的 `search` 开关（它登记
+# web_search），**不关 web_fetch**（走的是另一条路，http provider，与本开关无关）。工具
+# 不在工具表里，PTC 生成的 SDK 里也就没有它——模型看不到、调不了。
+# 与 interactor / orchestrator 两份 profile 同一行同一值。
+# 整块替换（profile 层不逐键合并）意味着本块就是 tool-web 的全部 config：故这里不重复写
+# `fetch`，取 schema 缺省 true —— 与 base bundle 那一行同值。
+- id: tool-web
+  config:
+    search: false
+
+# 文件围栏（@embody/dsh-file-guard）：按路径判 fs 家族（本角色**不**裁掉 tool-fs：PTC 下
+# read / glob 这些是程序里的绑定），并把命令行工具名（bash / pwsh）再拒一次。规矩与上面那两行
+# disabled 同源（2026-10-13 用户定），这一段与 Interactor / Orchestrator / Supervisor 三份里
+# 同一行的注释成对。
+#
+# allowedRoot 从进程环境来：configs/paths.py 的 RUNTIME_DIR，由 scripts/role-daemon.sh
+# **无条件**过桥成 ROLE_FILE_GUARD_ALLOWED_ROOTS（四个角色同一个值）。本机临时目录
+# （/tmp、os.tmpdir()）由插件自己加上、不过桥（与引擎沙箱的 writableRoots 同一口径）。
+#
+# bundle 层插的是 disabled: true，打开它的地方只有各 profile 这里；**按 id 覆盖，不再 insert
+# 一行**（两个 insert 会让 Loader 报 duplicate loader entry id）。取不到那个变量在装载时报
+# missing required value —— 不编默认值。
+- id: file-guard
+  disabled: false
+  config:
+    allowedRoot: !!js process.env.ROLE_FILE_GUARD_ALLOWED_ROOTS

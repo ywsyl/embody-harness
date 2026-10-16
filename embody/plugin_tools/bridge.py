@@ -10,14 +10,20 @@ load 时 `list` 一次，逐条 ctx.tools.register；模型每次调用再 `call
 
     python -m plugin_tools.bridge --role interactor list
         → stdout 输出 JSON 数组 [{name, description, parameters}, ...]
+          `waypoint_nav` 那条在 list 时现注入当前的「支持地点」清单（见
+          `_inject_supported_targets`）：清单是活数据，写不进 yaml，而这里是模型
+          看到合法地名的唯一渠道（PTC 模式下 description 就是生成 SDK 里的 docstring）。
 
     python -m plugin_tools.bridge --role interactor call <tool_name>
         → stdin 读 arguments JSON（一个对象），执行后 stdout 输出
           {"result": <string>}；工具自身失败输出 {"error": <string>}，两者都
           以 0 退出（退出码只表示协议层成败，工具报错是正常协议结果）。
           白名单外工具、参数非法等协议层错误才以非零退出并打 stderr。
+          **stdout 恰好一个 JSON 值**：工具是就地执行的，工具里（含其 import 的库）
+          的 print 会被 `_protocol_stdout()` 拨到 stderr，不然会挤坏协议。
+          参数原样透传：模型填什么就传什么，桥不替模型编参数。
 
-角色过滤的唯一事实源是 `configs.agent_plugin` 的 `ROLE_TOOLS` / `role_tools()`
+角色过滤的唯一事实源是 `configs.agents` 的 `ROLE_TOOLS` / `role_tools()`
 （interactor → INTERACTOR_TOOLS）。每次 `list` 都是一个新进程，配置改动无需重启引擎。
 
 依赖：PyYAML（见 plugin_tools/requirements.txt）。
@@ -29,8 +35,9 @@ import argparse
 import json
 import sys
 import traceback
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 
 # 与 tool_parser/tool_executor 一致：把仓库根（embody/）放进搜索路径，
 # 这样 `python plugin_tools/bridge.py`（直接执行）与 `-m plugin_tools.bridge`
@@ -39,8 +46,11 @@ _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from configs.agent_plugin import UnknownRoleError  # noqa: E402
-from plugin_tools.tool_executor import ToolExecutor  # noqa: E402
+from configs.agents import UnknownRoleError  # noqa: E402
+from plugin_tools.tool_executor import (  # noqa: E402
+    ToolExecutor,
+    waypoint_nav_supported_targets,
+)
 from plugin_tools.tool_parser import load_role_entries  # noqa: E402
 
 # 角色身份不可能是 unset（bundle 中性默认）——与 @embody/dsh-rolebus 同约定。
@@ -57,10 +67,65 @@ def _describe(entry: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+# waypoint_nav 的 target 只能填「支持地点」里的地名，而那份清单在导航 app 的数据文件里
+# （configs.configs.load_supported_locations 读 SUPPORTED_LOCATIONS_FILE），yaml 里写不下。
+# 清单是活的（新增地标不用改代码），所以每次 list 现取现注入。
+_WAYPOINT_NAV_TOOL = "waypoint_nav"
+
+
+def _inject_supported_targets(tools: List[Dict[str, Any]]) -> None:
+    """就地把当前的「支持地点」清单写进 waypoint_nav 的说明与 target 的参数说明。
+
+    清单与 `waypoint_nav()` 的校验集合同源（同一个 waypoint_nav_supported_targets()），
+    免得模型把「518」补全成「518房间」再被判不合法。
+
+    清单取不到（空元组）时**保持原文案不动**并出声：那时候写出「支持地点：」等于告诉
+    模型一个地点都没有，比不写更糟。
+    """
+    targets = waypoint_nav_supported_targets()
+    if not targets:
+        print("[bridge] 警告：读不到支持地点清单，waypoint_nav 的说明保持原文案", file=sys.stderr)
+        return
+    hint = "、".join(targets)
+    for tool in tools:
+        if tool.get("name") != _WAYPOINT_NAV_TOOL:
+            continue
+        tool["description"] = f"{tool.get('description', '')}（支持地点：{hint}）"
+        parameters = tool.get("parameters")
+        properties = parameters.get("properties") if isinstance(parameters, dict) else None
+        target = properties.get("target") if isinstance(properties, dict) else None
+        if isinstance(target, dict):
+            target["description"] = f"目标位置地点名称，必须是支持地点之一：{hint}"
+
+
+@contextmanager
+def _protocol_stdout() -> Iterator[Any]:
+    """执行期间把本进程的 stdout 借走，yield 出真实 stdout 供协议 JSON 使用。
+
+    协议是「stdout 恰好一个 JSON 值」——dsh 侧 `@embody/dsh-tools-bridge` 的 callTool
+    对整个 stdout 做一次 JSON.parse。而工具是**就地执行**的（同一进程、同一 sys.stdout），
+    工具里（含它 import 的库）任何一句 print 都会混进协议：2026-10-09 报的
+    「调用 audio_interact 的 stdout 不是 JSON」就是 Communicator/sender.py 上报成功后
+    那句 `[上报成功] task_progress …`，模型只能从错误文本里把结果捡回来。
+
+    期间 sys.stdout 指向 sys.stderr，工具照常 print、日志一行不丢（dsh 侧已透传 stderr）；
+    退出时恢复。工具的子进程都自己收 stdout（tool_executor / audio_tools 里的 subprocess.run），
+    不经这条路。
+    """
+    real = sys.stdout
+    sys.stdout = sys.stderr
+    try:
+        yield real
+    finally:
+        sys.stdout = real
+
+
 def _cmd_list(role: str, yaml_path: Path) -> int:
-    tools = [_describe(e) for e in load_role_entries(role, yaml_path)]
-    json.dump(tools, sys.stdout, ensure_ascii=False)
-    sys.stdout.write("\n")
+    with _protocol_stdout() as out:
+        tools = [_describe(e) for e in load_role_entries(role, yaml_path)]
+        _inject_supported_targets(tools)
+        json.dump(tools, out, ensure_ascii=False)
+        out.write("\n")
     return 0
 
 
@@ -79,28 +144,27 @@ def _cmd_call(role: str, yaml_path: Path, name: str) -> int:
         print("[bridge] 参数必须是 JSON 对象", file=sys.stderr)
         return 1
 
-    # entries 全部来自 yaml，而 _build_executor 对每个条目都给出可调用对象
-    # （builtin 或其 extra.execute 的包装，后者语法错误也只在调用时抛），
-    # 所以白名单校验通过后执行器必然存在；get_executor 的 Optional 是给
-    # parse_and_execute 用的（那里名字来自 LLM，可能不在注册表里）。
+    # entries 全部来自 yaml，而 _build_executor 对每个条目都给出可调用对象：内置执行器
+    # 或 extra.execute 的包装。两者都没有时它**在注册时就抛**（构造下面这个 ToolExecutor
+    # 的那一刻），所以走到这里的执行器必然存在——yaml 里多出一个没人实现的工具名是配置
+    # 错误，会在第一次 list / call 时暴露，而不是静默返回空串。
     executor = ToolExecutor(entries)
-    run = executor.get_executor(name)
-    assert run is not None, f"工具 {name!r} 无执行器 —— 白名单与 {yaml_path} 不一致"
 
-    try:
-        result = run(arguments)
-    except Exception as exc:  # noqa: BLE001 —— 工具失败要原样回给模型，附栈便于定位
-        json.dump(
-            {"error": f"{type(exc).__name__}: {exc}", "traceback": traceback.format_exc()},
-            sys.stdout,
-            ensure_ascii=False,
-        )
-        sys.stdout.write("\n")
-        return 0
+    with _protocol_stdout() as out:
+        try:
+            result = executor.execute_tool(name, arguments)
+        except Exception as exc:  # noqa: BLE001 —— 工具失败要原样回给模型，附栈便于定位
+            json.dump(
+                {"error": f"{type(exc).__name__}: {exc}", "traceback": traceback.format_exc()},
+                out,
+                ensure_ascii=False,
+            )
+            out.write("\n")
+            return 0
 
-    json.dump({"result": result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)},
-              sys.stdout, ensure_ascii=False)
-    sys.stdout.write("\n")
+        json.dump({"result": result if isinstance(result, str) else json.dumps(result, ensure_ascii=False)},
+                  out, ensure_ascii=False)
+        out.write("\n")
     return 0
 
 

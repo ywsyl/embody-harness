@@ -1,0 +1,31 @@
+{
+  "name": "@embody/dsh-file-guard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "embody 角色文件围栏：交互器 / 编排器 / 监督器 / planner 只许读写 runtime_files（与本机临时目录）里的文件，命令类工具（bash / pwsh）一律拒，其余路径一律拒。",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+[01m[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:[m[K In constructor ‘[01m[KTwistControllerSocketServer::TwistControllerSocketServer()[m[K’:
+[01m[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:310:12:[m[K [01;35m[Kwarning: [m[K‘[01m[KTwistControllerSocketServer::elapsed_time_[m[K’ will be initialized after [[01;35m[K-Wreorder[m[K]
+  310 |     double [01;35m[Kelapsed_time_[m[K;
+      |            [01;35m[K^~~~~~~~~~~~~[m[K
+[01m[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:302:9:[m[K [01;35m[Kwarning: [m[K  ‘[01m[Kint TwistControllerSocketServer::server_fd_[m[K’ [[01;35m[K-Wreorder[m[K]
+  302 |     int [01;35m[Kserver_fd_[m[K;
+      |         [01;35m[K^~~~~~~~~~[m[K
+[01m[K/root/cmcc_agent/skills/robot-dog-motion-control/src/server.cpp:27:5:[m[K [01;35m[Kwarning: [m[K  when initialized here [[01;35m[K-Wreorder[m[K]
+   27 |     [01;35m[KTwistControllerSocketServer[m[K()
+      |     [01;35m[K^~~~~~~~~~~~~~~~~~~~~~~~~~~[m[K

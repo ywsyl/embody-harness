@@ -1,0 +1,6 @@
+CMake Error at cmake_install.cmake:77 (file):
+  file INSTALL cannot find
+  "/root/cmcc_agent/skills/robot-dog-motion-control/scripts/test.sh": No such
+  file or directory.
+
+

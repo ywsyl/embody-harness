@@ -6,21 +6,26 @@
  * 活着，由事件驱动。**不存在第二个 agent**，也不另配人设或工具面。
  *
  * `resident: true` 时 `apply` 调用 {@link installResident}，它做两件事：
- *   1) 把本角色的 agent 建出来放着（或复用/续接已有的），**不发任何消息**，停在 idle，
- *      所以启动本身不产生模型请求（同一形态见引擎 acp 的 newSession）。
+ *   1) 把本角色的 agent 建出来放着（或复用/续接已有的），**默认不发任何消息**，停在 idle，
+ *      所以启动本身不产生模型请求（同一形态见引擎 acp 的 newSession）；唯一的例外是配了
+ *      `startupWake` 的角色——那类角色在装配完成后立刻收到一条开机消息起一轮（见
+ *      {@link bootMessage}），此后与其余角色一样只由事件唤醒。
  *      会话 id 固定为 `rolebus-<role>`：进程内已有同 id 的 agent 就复用；否则看
  *      `sessionPersistence.stat`——有落盘会话走 `resume` 续接上一次的上下文，没有才
  *      `create`。人设、preset、工具面都按本 profile 的部署解析，只有模型要在这里显式给：
  *     `agentDefaultModel.currentSelection()`（与 headless 建 agent 时的取值方式相同，
- *     `packages/bundle/headless/src/index.ts:183`）。引擎在**建 agent 时**定 route，不给就是
+ *     `packages/bundle/headless/src/index.ts:183`），本角色的部署可用 rolebus config 的
+ *     `modelProvider` 换掉其中的 provider（模型 id 不动，见 {@link ResidentSetup}）。
+ *     引擎在**建 agent 时**定 route，不给就是
  *     空 provider/model，第一轮直接以 "has no provider/model" 失败——不是等到请求时才补。
  *     取到的 route 在**每次进程启动时读一次**，并定死这个进程建/续接的那个 loop 实例：
  *     `agent-loop/src/agent.ts:510-529` 里 route 取自 loop 自己的 options，会话里记过的请求头
  *     只用来恢复同一 route 下的 reasoning effort。所以重启续接也是这次读到的 route 生效（不是
  *     沿用会话里记的那条）——正因如此，这里必须等组合装载完成（见 {@link whenCompositionLoaded}）。
- *   2) 订阅本进程的 `rolebus/event`，把每封信封渲染成一条 user message，按**目录条目声明的
- *      唤醒方式**交给 agent（见 {@link wakeResident}）：`steer` 交给最近的步骤边界、
- *      `followup` 独占下一轮、`inject` 只投不唤醒。有事件才有轮次，处理完回到 idle。
+ *   2) 订阅本进程的 `rolebus/event`，把每封信封渲染成一条 user message，按**该封事件的优先级**
+ *      推出唤醒方式交给 agent（见 {@link wakeResident}）：P1 `steer` 交给最近的步骤边界、
+ *      P2 `followup` 独占下一轮、P3 `inject` 只投不唤醒。处理完回到 idle，下一轮仍由事件或
+ *      （配了 `startupWake` 时的）开机自查带起来。
  *
  * 为什么这一步要显式 `create`：`send` / `followup` / `steer`（`Agent` 的方法，见
  * `packages/core/agent/src/runtime-types.ts:215-241`）都挂在**一个 Agent 实例**上，
@@ -33,14 +38,14 @@
  * 保持 FIFO。收件侧已把事件写进归档，丢一封就永远找不回来，因此这里不能有「还没建好
  * 就忽略」的窗口。
  *
- * 模型可见文本由 {@link renderEnvelope} 生成，是逐字钉在测试里的契约：一封信封 →
- * 一段「谁发来什么、要做什么、带哪些字段」的文字，不含 spool/文件/轮询这类传输层词汇。
+ * 模型可见文本由 {@link renderEnvelope} 生成：一封信封 → 一段「谁发来什么、要做什么、带哪些
+ * 字段」的文字，不含 spool/文件/轮询这类传输层词汇（收件方是角色自己的模型，不是运维）。
  * @module @embody/dsh-rolebus/resident
  */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
-import type { Agent, AgentHandle } from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentHandle, ModelSelection } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { SessionId, UserMessage } from '@deepseek-ai/dsh-session'
 // 空类型导入带进 `Context.sessionPersistence` / `Context.agentDefaultModel` 的声明合并
@@ -56,8 +61,15 @@ export const PLUGIN_SOURCE = 'rolebus'
 /** 唤醒文本的收尾指令（角色各自该做什么由人设定义，这里只说明这一轮的处理边界）。 */
 const CLOSING_LINE = '按你的职责处理这件事，处理完结束本轮。'
 
+/** 开机自查那一轮的抬头；角色人设按这个抬头区分「这一轮不是事件」。 */
+const BOOT_HEADING = '【开机自查】'
+
+/** 开机那一轮的收尾指令；与信封那条分开写：这里的「这件事」是自查，不是某封事件。 */
+const BOOT_CLOSING_LINE = '按你的职责完成这次自查，处理完结束本轮。'
+
 /** 信封可选头字段的中文标签，按渲染顺序排列。 */
 const HEADER_LABELS = [
+  ['priority', '优先级'],
   ['task_id', '任务号'],
   ['program_id', '程序号'],
   ['correlation_id', '关联号'],
@@ -92,7 +104,9 @@ function formatValue(value: unknown): string {
  *
  * 事件语义取自目录条目（`event-catalog.ts`）的 `description`——与模型在发件工具上看到的
  * 是同一段文字，不引入第二套说明。目录里查不到的事件（收件侧不按目录校验）退化成只印
- * 事件类型：已投递的事件不能再丢，渲染不出语义时也要交给模型。
+ * 事件类型：已投递的事件不能再丢，渲染不出语义时也要交给模型。条目标了 `hiddenPayload`
+ * 的 payload 键（如两条任务事件的 `items`——机器改清单的字段改动）只进信封留审计，**不进
+ * 唤醒文本**：收件方该看的是人话说明，改动本身在清单文件里。
  * @param envelope - 本角色收到的一封事件。
  * @returns 交给常驻 agent 的消息文本（唤醒方式见 {@link wakeResident}）。
  */
@@ -105,7 +119,9 @@ export function renderEnvelope(envelope: RoleBusEnvelope): string {
     if (value === undefined || value === null) continue
     lines.push(`${label}：${String(value)}`)
   }
+  const hidden = new Set(spec?.hiddenPayload ?? [])
   for (const [key, value] of Object.entries(envelope.payload ?? {})) {
+    if (hidden.has(key)) continue
     lines.push(`${PAYLOAD_LABELS[key] ?? key}：${formatValue(value)}`)
   }
   lines.push(CLOSING_LINE)
@@ -125,6 +141,25 @@ export function wakeMessage(envelope: RoleBusEnvelope): UserMessage {
 }
 
 /**
+ * 一次开机自查 → 一条插件来源的 user message（形状与 {@link wakeMessage} 同：抬头 + 说明 +
+ * 收尾指令，只是没有信封头，整段说明就是配置给的那句）。
+ *
+ * 谁还需要这一轮：**只有交互器** —— 它开机要把还没做完的任务问给用户、听答、按用户的话写回
+ * 清单（做法见 Interactor/prompts/ 的【开机自查】），全程要跟用户一来一回，只有一条消息能把它
+ * 带起来。要问哪几批任务**由代码挑好、拼在 `startupWake` 里**（见 Interactor/resident.patch.yml），
+ * 这一轮不负责挑。其余角色（含编排器）都不配 `startupWake`：清单该不该问用户全在交互器那一轮里，
+ * 它们起来直接待机，那种启动不产生任何模型请求。
+ * @param startupWake - 该角色 profile 配的开机说明（`rolebus.startupWake`）。
+ * @returns 可直接交给常驻 agent 的消息。
+ */
+export function bootMessage(startupWake: string): UserMessage {
+  return createUserMessage({
+    content: [{ type: 'text', text: [BOOT_HEADING, startupWake, BOOT_CLOSING_LINE].join('\n') }],
+    source: { kind: 'plugin', plugin: PLUGIN_SOURCE },
+  })
+}
+
+/**
  * 三种唤醒方式 → 引擎 `Agent` 上的同名方法。表驱动：以后加第四种方式时，这里与
  * `event-catalog.ts` 的 `WAKE_MODES` 是仅有的两个改动点（`Record<WakeMode, …>` 要求键齐全）。
  */
@@ -135,8 +170,8 @@ const WAKE_CALLS: Readonly<Record<WakeMode, (agent: Agent, message: UserMessage)
 }
 
 /**
- * 把一封事件交给常驻 agent，唤醒方式取自目录条目（{@link wakeModeFor}），一对一调用引擎的
- * 同名方法，不按角色忙闲做任何改写。
+ * 把一封事件交给常驻 agent，唤醒方式由该封事件的优先级推出（{@link wakeModeFor}），一对一
+ * 调用引擎的同名方法，不按角色忙闲做任何改写。
  *
  * 三种方式的差别只在角色**忙碌**（这一轮在跑）时才显出来：`steer` 交给最近的一个步骤边界、
  * 搭在这一轮已有的请求上；`followup` 等这一轮收敛后独占下一轮；`inject` 只投不唤醒。空闲时
@@ -176,19 +211,44 @@ async function whenCompositionLoaded(ctx: Context): Promise<void> {
 }
 
 /**
+ * 装配常驻 agent 的部署选择，两项都来自本角色的 rolebus config（空串＝未配置，见其 `Config`）。
+ */
+export interface ResidentSetup {
+  /** 开机自查的说明文本；非空时装配完成后主动起一轮（见 {@link bootMessage}）。 */
+  readonly startupWake: string
+  /**
+   * 模型路由覆盖：非空时本角色改走这条 provider，模型 id 仍取 `agent-default-model`。
+   * 构造覆盖用的 selection 时**不带 `reasoningEffort`**——丢掉档位正是关掉思考的那一动作。
+   */
+  readonly modelProvider: string
+}
+
+/**
+ * 本次常驻 agent 用的模型选择：未配 `modelProvider` 时就是组合解析出的默认值（一字不改）。
+ * @param defaults - `agentDefaultModel.currentSelection()` 的结果。
+ * @param modelProvider - 本角色的路由覆盖；空串表示不覆盖。
+ * @returns 交给 `agents.create` / `agents.resume` 的模型选择。
+ */
+function residentSelection(defaults: ModelSelection, modelProvider: string): ModelSelection {
+  if (modelProvider === '') return defaults
+  return { provider: modelProvider, model: defaults.model }
+}
+
+/**
  * 建出本角色的 agent（幂等；不发送任何消息）：进程内已有就复用，有落盘会话就续接。
  * @param ctx - 已注入 `agents` / `agentDefaultModel` / `sessionPersistence` 的 context。
  * @param role - 角色身份。
+ * @param setup - 本次装配的部署选择（模型路由覆盖在其内）。
  * @returns 该角色的 agent 与它的所有权。
  */
-async function openResident(ctx: Context, role: RoleName): Promise<ResidentStartup> {
+async function openResident(ctx: Context, role: RoleName, setup: ResidentSetup): Promise<ResidentStartup> {
   const sessionId = residentSessionId(role)
   const existing = ctx.agents.get(sessionId)
   if (existing !== undefined) {
     return { agent: existing, owned: false, dispose: async () => undefined }
   }
   await whenCompositionLoaded(ctx)
-  const agentOptions = ctx.agentDefaultModel.currentSelection()
+  const agentOptions = residentSelection(ctx.agentDefaultModel.currentSelection(), setup.modelProvider)
   // 显式二选一，不做 try/catch 兜底：会话在不在由持久化层回答，不是猜出来的。
   const stored = await ctx.sessionPersistence.stat(sessionId)
   const handle: AgentHandle = stored === undefined
@@ -205,20 +265,32 @@ async function openResident(ctx: Context, role: RoleName): Promise<ResidentStart
  * 那时事件已进归档，能做的只有把失败留在日志里。
  * @param ctx - 已注入 `agents` / `sessionPersistence` 的 context。
  * @param role - 角色身份。
+ * @param setup - 本次装配的部署选择（开机自查文本与模型路由覆盖）。
  */
-export function installResident(ctx: Context, role: RoleName): void {
+export function installResident(ctx: Context, role: RoleName, setup: ResidentSetup): void {
   ctx.effect(() => {
     let disposed = false
     let owned: ResidentStartup | undefined
 
     const startup: Promise<ResidentStartup | undefined> = (async () => {
-      const opened = await openResident(ctx, role)
+      const opened = await openResident(ctx, role, setup)
       // 卸载发生在建立完成之前：agent 已经建出来了，必须由这次建立自己拆掉。
       if (disposed) {
         await opened.dispose()
         return undefined
       }
       owned = opened
+      // 开机自查排在所有事件之前：订阅方都挂在同一个 startup promise 上，这一段跑完才轮到
+      // 它们，所以它必然先于任何排队事件进入 agent。判据是「这次是本进程建的」而不是「这次是
+      // 新建会话」——续接（会话没被重置）同样是刚拉起，一样该回头看一眼没做完的任务。
+      //
+      // 等一次 whenIdle 再投，与引擎自己的两步用法一致（headless bundle 的
+      // `agents.create` → `whenIdle` → `followup`）：刚建出来的 agent 立刻就是 idle，
+      // 这次等待不花时间，只是不在驱动起步之前抢投。
+      if (setup.startupWake) {
+        await opened.agent.whenIdle()
+        opened.agent.followup(bootMessage(setup.startupWake))
+      }
       return opened
     })().catch((error: unknown) => {
       console.error(`[rolebus] 常驻 agent 建立失败（角色 ${JSON.stringify(role)}），事件将无人处理：`, error)

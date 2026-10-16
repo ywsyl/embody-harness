@@ -1,0 +1,31 @@
+{
+  "name": "@embody/dsh-speech-stream",
+  "version": "0.1.0",
+  "private": true,
+  "description": "embody-harness 交互器的流式语音：订阅 agent/assistant-stream，在 speak / speak_listen 的 text 参数还在逐片到达时就把已经成句的部分送进 TTS，并记下「这一轮已经播到第几个字」供 Python 工具去重。",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  // location-context 作为引擎图外的叶子项目（与 ../task-context、../rolebus 同形）。引擎依赖
+  // （@deepseek-ai/cordis、schemastery、dsh-agent、dsh-llm）经 tsconfig.base.json 的 `paths`
+  // 解析到各包 src；本文件用 `references` 声明这些 src 归属的编译项目，`tsc -b` 会先按各包
+  // 自身 tsconfig（vendor/cordis 等各自关闭 strict 子旗标）构建出 d.ts，再对本包校验——这正是
+  // 引擎“per-package 编译边界”的形态。产物 lib/ 与引擎各包 lib/types 都已被 .gitignore 忽略，
+  // 构建只写产物、不动引擎源码。
+  // 引用列表 = 本包真正 import 的那些包：cordis（Context）、schemastery（Config 校验）、
+  // agent（agent/pre-step 事件与 Agent 类型）、llm（createUserMessage）。与 ../task-context
+  // 逐条相同——本插件同样不读文件、只用事件与配置。
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "../../../vendor/cordis"
+    },
+    {
+      "path": "../../../vendor/schemastery"
+    },
+    {
+      "path": "../../../packages/core/agent"
+    },
+    {
+      "path": "../../../packages/llm/llm"
+    }
+  ]
+}

@@ -18,6 +18,11 @@ export const SEVERITIES = ['info', 'warning', 'blocking', 'safety'] as const
 /** 面向用户事件的严重度；非面向用户事件不带此字段。 */
 export type Severity = (typeof SEVERITIES)[number]
 
+/** 优先级取值（信封头字段：发件方选定、收件方据此决定怎么唤醒自己）。 */
+export const PRIORITIES = ['P1', 'P2', 'P3'] as const
+/** 一封事件的优先级；取值对应的唤醒方式见 `./event-catalog.ts` 的 `PRIORITY_WAKE_MODES`。 */
+export type Priority = (typeof PRIORITIES)[number]
+
 /**
  * 统一事件头。`event_id`/`timestamp` 可由 rolebus 自动补全，但
  * `event_type`/`source`/`target` 由调用方表达；`source` 必须是本角色身份
@@ -26,7 +31,7 @@ export type Severity = (typeof SEVERITIES)[number]
 export interface RoleBusEnvelope {
   /** 发送方生成或 rolebus 补全的全局唯一事件 id（去重键）。 */
   event_id: string
-  /** 目录条目（`./event-catalog.ts`）的事件类型，如 `task_content_update`。 */
+  /** 目录条目（`./event-catalog.ts`）的事件类型，如 `task_update_int`。 */
   event_type: string
   /** 发送角色身份（= 发送方 profile 的 rolebus.role）。 */
   source: RoleName
@@ -42,6 +47,14 @@ export interface RoleBusEnvelope {
   correlation_id?: string | null
   /** 信封头字段：仅面向用户事件携带。 */
   severity?: Severity
+  /**
+   * 信封头字段：发件方为本封选定的优先级，决定收件方怎么被唤醒。
+   * **目录里定义的事件一律带上它**：发件工具在模型没表态时写条目声明的值（见 `./index.ts`
+   * 的 `createEventTool`）。只有目录外或手工投的信封才省略或给 `null`——那时收件方用目录里
+   * 该事件的固定值，目录外退到 `./event-catalog.ts` 的 `DEFAULT_PRIORITY`；取值不在
+   * {@link PRIORITIES} 里同样回落，不因此丢件。
+   */
+  priority?: Priority | null
   /** 事件负载（领域字段由目录条目的 parameters 定义，rolebus 透明透传）。 */
   payload?: Record<string, unknown>
 }
@@ -65,7 +78,7 @@ export const REQUIRED_HEADER_FIELDS = ['event_type', 'source', 'target'] as cons
  * （分区实现见 `index.ts` 的 `createEventTool`）。名称镜像 {@link RoleBusEnvelope}
  * 的可选字段，不是预留。
  */
-export const HEADER_FIELDS = ['task_id', 'program_id', 'correlation_id', 'severity'] as const
+export const HEADER_FIELDS = ['task_id', 'program_id', 'correlation_id', 'severity', 'priority'] as const
 
 /** 事件类型必须是 snake_case：小写字母开头，仅小写字母/数字/下划线。 */
 export const EVENT_TYPE_PATTERN = /^[a-z][a-z0-9_]*$/

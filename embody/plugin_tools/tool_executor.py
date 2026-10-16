@@ -12,20 +12,21 @@
 
 主要导出:
     ToolExecutor — 从工具条目注册执行器；parse_and_execute 解析并执行 tool_calls
+
+工具实现分散在各模块里，本文件只留入口（取参数 → 调实现 → 拼模型可见的回执文本）：
+语音五个工具在 plugin_tools/audio_tools.py，天气在 plugin_tools/weather.py，
+任务清单在 plugin_tools/task_board.py。
 """
 
 from __future__ import annotations
 
 import ast
-import fcntl
 import json
-import math
-import select
 import subprocess
 import sys
+import threading
 import time
 import traceback
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -34,96 +35,41 @@ _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-import yaml
-
 from configs.paths import (
     ACTION_SCRIPT,
+    BULL_CHASE_SCRIPT,
     FIND_OBJ_SCRIPT,
-    NAVIGATION_LANDMARKS_FILE,
-    RUNTIME_INTERACTION_HISTORY_FILE,
+    RUNTIME_MOTION_STATUS,
+    RUNTIME_ROBOT_STATUS,
+    RUNTIME_VISION_OBSERVATION,
     TURN2SUBJECT_SCRIPT,
     VISION_DISPATCH_SCRIPT,
     VLN_SCRIPT,
 )
 
-from configs.configs import REPORT_TOOLS
+from configs.configs import (
+    ACTION_CHANNEL_GAIT,
+    GAIT_TYPES,
+    INPUT_WAIT,
+    MOTION_ACTION_TIMEOUT_BY_ACTION,
+    NAVIGATION_POLL_INTERVAL,
+    NAVIGATION_REQUEST_TIMEOUT,
+    NAVIGATION_TIMEOUT,
+    VISION_OBSERVE_RATE_LEVELS,
+    VISION_SUBPROCESS_TIMEOUT,
+)
 
-from Communicator.sender import send_task_progress
+from configs.prompts import BULL_CHASE_PROMPT
 
+# 视觉观测参数的运行时可调覆盖层（读写在 Orchestrator/vision_tunables.py）。
+# 别名带下划线：本模块要导出一个**同名工具函数** vision_tunables()，
+# 直接 `from Orchestrator import vision_tunables` 会让本文件后面的 def 把它遮住。
+from Orchestrator import vision_tunables as _vision_tunables_config
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 交互历史记录（interaction_history.yaml 读写）
-# ─────────────────────────────────────────────────────────────────────────────
-
-def _append_interaction_history(role: str, content: str) -> None:
-    """
-    往 runtime_files/interaction_history.yaml 追加一条记录：
-        {"role": ..., "content": ..., "timestamp": "YYYY-mm-dd HH:MM:SS"}
-
-    由执行器在调用工具后触发：
-        speak/tts 执行器 → _append_interaction_history("assistant", text)
-        listen 执行器    → _append_interaction_history("user", text)
-
-    并发安全：
-        TTS 播报与 ASR 收音可能在不同线程 / 进程同时完成并写入同一文件。
-        这里对独立锁文件做 flock，串行化“读-改-写”，
-        覆盖同进程多线程与跨进程的并发。
-
-    写入失败只打印告警，不影响工具执行结果。
-    """
-    try:
-        path = RUNTIME_INTERACTION_HISTORY_FILE
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        # 锁文件独立于目标文件：
-        # 写入走 tmp + rename，会替换目标 inode，
-        # 等锁在旧 inode 上的进程会读到旧内容，导致丢记录。
-        lock_path = path.with_name(path.name + ".lock")
-
-        with open(lock_path, "a", encoding="utf-8") as lock_f:
-            fcntl.flock(lock_f, fcntl.LOCK_EX)
-
-            history: list = []
-
-            if path.exists():
-                try:
-                    data = yaml.safe_load(
-                        path.read_text(encoding="utf-8")
-                    )
-                except Exception:
-                    data = None
-
-                if (
-                    isinstance(data, dict)
-                    and isinstance(data.get("history"), list)
-                ):
-                    history = data["history"]
-
-            history.append(
-                {
-                    "role": role,
-                    "content": content,
-                    "timestamp": datetime.now().strftime(
-                        "%Y-%m-%d %H:%M:%S"
-                    ),
-                }
-            )
-
-            tmp = path.with_suffix(".yaml.tmp")
-            with open(tmp, "w", encoding="utf-8") as f:
-                yaml.safe_dump(
-                    {"history": history},
-                    f,
-                    allow_unicode=True,
-                    default_flow_style=False,
-                    sort_keys=False,
-                )
-            tmp.replace(path)
-
-            # with 块退出时关闭 fd，flock 自动释放
-
-    except Exception as e:
-        print(f"    [interaction_history] 记录失败: {e}")
+from plugin_tools import audio_tools
+from plugin_tools import task_board
+# 天气查询（poll open-meteo）。别名带下划线，理由同上：本模块要导出一个**同名工具函数** weather()。
+from plugin_tools import weather as _weather_impl
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -131,223 +77,142 @@ def _append_interaction_history(role: str, content: str) -> None:
 # 每个内置工具一个独立函数，_build_executor 按工具名分发到这里。
 # ─────────────────────────────────────────────────────────────────────────────
 
-# 命令行语音 I/O：speak / listen / speak_listen 用控制终端代替真实 TTS 与 ASR。
-# 读走 /dev/tty，不碰 stdin/stdout —— `plugin_tools.bridge call` 的 arguments 走
-# stdin、结果 JSON 走 stdout，占用它们会让协议读到 EOF。没有控制终端（后台进程）
-# 时降级到 stdin。写不再往任何地方落：原因见 _say_text。
-
-
-def _open_tty(mode: str) -> Any:
-    """按 mode（"r" / "w"）打开控制终端（/dev/tty）；无控制终端时返回 None。
-
-    只按单向模式打开：/dev/tty 是字符设备，文本层可读写的 "r+" 走
-    BufferedRandom、要求底层可 seek，会抛 UnsupportedOperation。
-    """
-    try:
-        return open("/dev/tty", mode, encoding="utf-8")
-    except OSError:
-        return None
-
-
-def _say_text(text: str) -> None:
-    """播报文本不在这里打印 —— 它已经作为本次工具调用的参数进了记录。
-
-    原来往控制终端（无终端时 stderr）打一行 `[speak] <文本>`，与 role-watch 的
-    `[工具] speak {…}` 行是同一句话（scripts/role-watch.sh），而 watcher 的每一行同时
-    就是逐轮记录的落盘内容：多打这一行会让终端比记录多出一行，脱离终端跑时它又重复落进
-    start-<role>.out。文本没有丢——会话日志里有这次调用的 arguments，逐轮记录里有同一行。
-
-    保留函数与签名：调用点标出「这里本该播报」，也是本事实唯一写下来的地方。
-    """
-
-
-def _read_line(timeout: float) -> Optional[str]:
-    """从命令行读取一行用户输入（替代 ASR 收音）；超时、EOF、空行均返回 None。"""
-    prompt = _open_tty("w")
-    stream = _open_tty("r")
-    if stream is None:
-        stream = sys.stdin
-    if prompt is None:
-        print("🎤 请输入：", file=sys.stderr, flush=True, end="")
-    else:
-        prompt.write("🎤 请输入：")
-        prompt.flush()
-    try:
-        # 终端可读即说明用户已输入整行；超时则判定为没有回复
-        ready, _, _ = select.select([stream], [], [], timeout)
-        if not ready:
-            return None
-        line = stream.readline()
-    finally:
-        if stream is not sys.stdin:
-            stream.close()
-        if prompt is not None:
-            prompt.close()
-    text = line.strip()
-    return text or None
+# ─────────────────────────────────────────────────────────────────────────────
+# 语音工具（speak / listen / speak_listen / audio_interact / speak_input）
+# 实现全在 plugin_tools/audio_tools.py（播报走常驻 TTS 服务、收音走本地 ASR 或控制终端，
+# 加上流式播报去重、等播完的判定、上报"等待用户回答"那几段流程）。下面五个只做
+# 「取参数 → 调 audio_tools → 拼模型可见的回执文本」，流程改动请去那边。
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 def speak(arguments: Dict[str, Any]) -> Any:
-    """speak/tts：把文本输出到命令行（1 次，非持续）"""
+    """speak/tts：调 TTS 服务播报文本（1 次，非持续）。
+
+    `play_now` 缺省 **false**：不主动抢麦（设备没有队列 —— 每条新请求都会先停掉在播的那条），
+    要抢麦、立刻打断在播的才传 true；`wait_done` 缺省 false，即发出请求就返回（音频还在放），
+    传 true 则等这段播完再返回。
+
+    流式播报（dsh 插件边生成边把成句的部分送进 TTS）开着时，这段文字可能已经由插件送出去了：
+    这里不重发，只补没播过的那截并按需等播完。两条路与判定见 audio_tools.speak_text。
+    """
     text = arguments.get("text", "")
     if not text:
         return "tts: text 参数为空"
-    _say_text(text)
-    # 播报后记录一条 assistant 交互历史
-    _append_interaction_history("assistant", text)
+    audio_tools.speak_text(
+        text,
+        play_now=audio_tools.bool_arg(arguments.get("play_now"), default=False),
+        wait_done=audio_tools.bool_arg(arguments.get("wait_done"), default=False),
+    )
     return "✅ 播报完成"
 
 
 def listen(arguments: Dict[str, Any]) -> Any:
-    """listen：从命令行读取一行输入，作为识别到的语音文本"""
-    timeout_arg = int(arguments.get("timeout") or 30)
-    user_text = _read_line(timeout_arg)
-    if not user_text:
-        return "[ASR] 未识别到语音内容"
-    # 只记录识别到的用户输入
-    _append_interaction_history("user", user_text)
-    return f"[ASR] {user_text}"
+    """listen：拉一次本地 ASR 收音，返回用户这一轮说的话。
 
+    主动唤醒设备收音（skills/asr-listener/scripts/run_asr.sh），取设备侧 ASR 认出来的
+    最终文本；收音窗口（configs.ASR_LISTEN_WINDOW）内没人说话就是"未收到"。
 
-# 终端测试模式开关：由 chat_loop.interactor 按 terminal 参数置位，
-# voice_interact 转发多轮交互时读取，保证终端模式下不真实 TTS/ASR。
-_TERMINAL_MODE = False
-
-
-def set_terminal_mode(enabled: bool) -> None:
-    """设置终端测试模式开关（全局）。"""
-    global _TERMINAL_MODE
-    _TERMINAL_MODE = bool(enabled)
-
-
-_VALID_VOICE_MODES = {"chat", "follow_up", "get_reply"}
-
-
-def voice_interact(arguments: Dict[str, Any]) -> Any:
-    """voice_interact：通过多轮语音交互达成目标（转发给 chat_loop 的 interactor）"""
-    mode = arguments.get("mode", "")
-    if mode not in _VALID_VOICE_MODES:
-        return (
-            f"voice_interact: 无效的 mode={mode!r}，"
-            f"可用模式: {', '.join(sorted(_VALID_VOICE_MODES))}"
-        )
-    task_id = arguments.get("task_id", "")
-    init_text = arguments.get("init_text", "")
-    if not init_text:
-        return "voice_interact: init_text 参数为空"
-    if not task_id:
-        return "voice_interact: task_id 参数为空（需由系统注入）"
-
-    from Agents.chat.chat_loop import interactor
-
-    data = interactor(
-        mode=mode,
-        init_text=init_text,
-        task_id=task_id,
-        terminal=_TERMINAL_MODE,
-    )
-    # interactor 现返回字典 data = {"status", "reason", "info", "task_id", "interaction_text"}；
-    # follow_up 模式 info 为任务信息 dict（顶层含 task_id），chat/get_reply 模式为空 dict {}
-    task_status = data.get("status")
-    task_info = data.get("info") or {}
-    # 顶层 task_id 优先（replan 时 interactor 已更新 tm.task_id）；兜底取 info 内 task_id
-    new_task_id = (
-        data.get("task_id")
-        or (task_info.get("task_id") if isinstance(task_info, dict) else None)
-        or task_id
-    )
-    # 返回结构化 JSON（含完整任务信息与本次交互对话），由调用方（task_loop 等）
-    # 同步回主循环；interaction_text 随工具结果进入 progress，下一轮暴露给主循环 LLM
-    return json.dumps(
-        {
-            "task_status": task_status,
-            "task_id": new_task_id,
-            "info": task_info,
-            "interaction_text": data.get("interaction_text", ""),
-        },
-        ensure_ascii=False,
-        default=str,
-    )
-
-
-def _report_waiting_state(task_id: str, waiting_for_user: bool,
-                          pending_question: str = "") -> None:
-    """向云端上报"是否正在等待用户回答"。
-
-    快照默认 waiting_for_user=False（ProgressManager.report_status），
-    需标记等待用户时改写成 True 并附 pending_question=播报内容；
-    收听结束/任务终止一律上报 False 复位，否则云端会一直按"等待用户回答"处理。
+    等不到不抛异常：没人说话是正常结果，返回"未收到"让模型自己决定要不要再问一遍。
+    措辞与 audio_interact 一致 —— 两者收的是同一路声音（设备侧 ASR）。
+    收音过程（含超时兜底）见 audio_tools.collect_speech。
     """
-    if not task_id:
-        return
-    try:
-        from ToolManager.progress_manager import ProgressManager
-        pm = ProgressManager(task_id=task_id, agent_type="task")
-        snapshot = pm.report_status()
-        snapshot["waiting_for_user"] = bool(waiting_for_user)
-        if waiting_for_user:
-            snapshot["pending_question"] = pending_question
-        send_task_progress(snapshot)
-    except Exception as exc:
-        print(f"    [speak_listen] 上报等待用户状态失败: {exc}")
+    text = audio_tools.collect_speech()
+    if text:
+        return f"[本地语音] 用户说：{text}"
+    return "[本地语音] 未收到用户语音（收音窗口内未识别到语音）"
 
 
 def speak_listen(arguments: Dict[str, Any]) -> Any:
-    """speak_listen：先向命令行输出文本，再读取一行用户回复，完成一轮交互。
+    """speak_listen：先 TTS 播报，再拉一次本地 ASR 收音，完成一轮"说一句、听一句"。
 
-    云端"等待用户回答"状态的上报保持不变：输出后上报
-    send_task_progress(waiting_for_user=true, pending_question=播报内容)，
-    随后从命令行读取用户回复；读数结束（拿到回复或超时）后再上报
-    waiting_for_user=false，成对复位云端"等待回答"状态。
+    播报那一段**不主动打断在播的**（`play_now=false` 写死，schema 也没暴露这个开关——要抢麦是
+    audio_interact 的事）；`wait_done` 缺省 true，即等这段播完再开始收音。
+
+    整段流程（上报"等待用户回答" → 播报 → 收音 → 复位，以及"播报必须排在收音前面"的原因、
+    上报为何成对）见 audio_tools.speak_and_listen。
     """
     # 参数名兼容：工具 schema 定义为 text，历史实现用 init_text，两处都接受
     init_text = arguments.get("text") or arguments.get("init_text") or ""
     if not init_text:
         return "speak_listen: text 参数为空"
-    listen_timeout = int(arguments.get("listen_timeout") or 10)
-    task_id = str(arguments.get("task_id") or "").strip()
-
-    # ---- speak 部分：把文本输出到命令行 ----
-    _say_text(init_text)
-    speak_out = "✅ 播报完成"
-    # 播报后记录一条 assistant 交互历史
-    _append_interaction_history("assistant", init_text)
-
-    # ---- 上报"正在等待用户"，pending_question=播报内容（播报即上报）----
-    _report_waiting_state(task_id, waiting_for_user=True, pending_question=init_text)
-
-    # ---- listen 部分：从命令行读取用户回复 ----
-    user_text = _read_line(listen_timeout)
-
-    # ---- 读数结束（拿到回复或超时）：复位 waiting_for_user=False ----
-    # 与上方播报后置 True 成对，否则云端会一直按"等待用户回答"处理。
-    _report_waiting_state(task_id, waiting_for_user=False)
-
-    if user_text:
-        # 只记录读取到的用户输入
-        _append_interaction_history("user", user_text)
-        asr_out = f"[ASR] {user_text}"
-    else:
-        asr_out = "[ASR] 未识别到语音内容"
-
-    return f"{speak_out}\n{asr_out}"
+    answer = audio_tools.speak_and_listen(
+        init_text,
+        wait_done=audio_tools.bool_arg(arguments.get("wait_done"), default=True),
+        task_id=str(arguments.get("task_id") or "").strip(),
+    )
+    if answer:
+        return f"✅ 播报完成\n[本地语音] 用户说：{answer}"
+    return "✅ 播报完成\n[本地语音] 未收到用户语音（收音窗口内未识别到语音）"
 
 
-_VALID_ACTIONS = {
-    "dance", "danceV2", "happy", "stretch",
-    "standUp", "sitDown", "getDown",
-    "greeting", "fingerHeart", "newYearCall",
-    "leap", "jumpForward", "walkUpsideDown", "standErect",
-}
-def do_action(arguments: Dict[str, Any]) -> Any:
-    """do_action：控制机器狗执行指定动作"""
+def audio_interact(arguments: Dict[str, Any]) -> Any:
+    """audio_interact：播报一句话 → 静默唤醒设备 → 等这一轮收尾，并收下设备侧 ASR 认出来的用户语音。
+
+    整段流程在 skills/audio_interact/（播报复用 tts-speak、唤醒复用 asr-listener），
+    **播报排在唤醒前面**；判定、等待窗口与"等待用户回答"上报见
+    audio_tools.run_audio_interact。本工具 schema 里没有 task_id，模型也填不了 → 拿不到任务号
+    就不向云端上报。
+
+    没听清时把那句结束原因翻成人话再交给模型（audio_tools.ended_by_text），模型读的是人话而不是
+    脚本的数字码。
+    """
+    text = str(arguments.get("text") or "").strip()
+    if not text:
+        return "audio_interact: text 参数为空"
+    result = audio_tools.run_audio_interact(
+        text, task_id=str(arguments.get("task_id") or "").strip()
+    )
+    if isinstance(result, str):
+        # 超时 / 脚本输出不是预期 JSON：audio_tools 给的是一句说明，按原样交给模型
+        return result
+    answer = str(result.get("answer") or "").strip()
+    if not answer:
+        return f"[本地语音] 未收到用户语音（{audio_tools.ended_by_text(result)}）"
+    return f"[本地语音] 用户说：{answer}"
+
+
+def speak_input(arguments: Dict[str, Any]) -> Any:
+    """speak_input：先 TTS 播报，再从控制终端读一行，作为本轮用户回复。
+
+    本地联调入口：拿不到麦克风收音（不在机器人上、ASR 会话起不来）时用它顶替
+    listen / speak_listen，人的输入直接变成工具结果。它不在任何一条云端链路上，
+    因此不向云端上报状态、也不需要 task_id。
+
+    播报那半段与 speak_listen 相同（不主动打断、wait_done 缺省为真）；读终端失败
+    （无控制终端）返回错误文本而不是抛异常。读终端本身见 audio_tools.read_tty_line。
+    """
+    text = arguments.get("text") or arguments.get("init_text") or ""
+    if not text:
+        return "speak_input: text 参数为空"
+
+    audio_tools.speak_text(
+        text,
+        play_now="false",
+        wait_done=audio_tools.bool_arg(arguments.get("wait_done"), default=True),
+    )
+    readable, user_text = audio_tools.read_tty_line(INPUT_WAIT)
+    if not readable:
+        return "✅ 播报完成\n[终端输入] 读不到控制终端，本入口只在有终端的角色进程里可用"
+    if not user_text:
+        return "✅ 播报完成\n[终端输入] 未收到终端输入"
+    return f"✅ 播报完成\n[终端输入] {user_text}"
+
+
+# 动作白名单**从 configs 的动作表派生**，不另抄一份：那张表是「动作名 → 等待上限」的全集
+# （22 个），也是 available_tools.yaml 里 action 工具枚举的对照。曾在这里另抄过一份 14 个的
+# 子集，结果是新动作在工具层被静默判成「无效的 action_type」。
+_VALID_ACTIONS = frozenset(MOTION_ACTION_TIMEOUT_BY_ACTION)
+
+
+def _do_action(name: str, arguments: Dict[str, Any]) -> Any:
+    """do_action / action 的共用实现；name 只用于回执与报错里的自称。"""
     action_type = arguments.get("action_type", "")
     if not action_type:
-        return "do_action: action_type 参数为空"
+        return f"{name}: action_type 参数为空"
     # 与 robot-dog-actions 技能保持一致的动作白名单，防止把无效动作发给机器人
     if action_type not in _VALID_ACTIONS:
         return (
-            f"do_action: 无效的 action_type={action_type!r}，"
+            f"{name}: 无效的 action_type={action_type!r}，"
             f"可用动作: {', '.join(sorted(_VALID_ACTIONS))}"
         )
     result = subprocess.run(
@@ -355,10 +220,56 @@ def do_action(arguments: Dict[str, Any]) -> Any:
         capture_output=True, text=True, timeout=60,
     )
     if result.returncode == 0:
-        return f"✅ 动作执行完成: {result.stdout.strip()}"
+        # 脚本把指令发到 /catch_turtle/action_type 就返回（--once 发布），不等机器人做完动作；
+        # 这里如实转述它的回执，不替它宣布"动作完成"（等完成要订阅状态，订阅方在组件进程）。
+        return result.stdout.strip()
     raise RuntimeError(
-        f"do_action 执行失败 (code={result.returncode}): {result.stderr or result.stdout}"
+        f"{name} 执行失败 (code={result.returncode}): {result.stderr or result.stdout}"
     )
+
+
+def do_action(arguments: Dict[str, Any]) -> Any:
+    """do_action：控制机器狗执行指定动作（ACTION_SCRIPT 下发，不等动作做完）"""
+    return _do_action("do_action", arguments)
+
+
+def action(arguments: Dict[str, Any]) -> Any:
+    """action：do_action 的别名 —— 编排器的工具表里它叫 action，交互器的叫 do_action。
+
+    两条名字指同一份实现，不各写一遍。参数与返回见 do_action。
+    """
+    return _do_action("action", arguments)
+
+
+_VALID_GAITS = frozenset(GAIT_TYPES)
+
+
+def gait(arguments: Dict[str, Any]) -> Any:
+    """gait：切换机器狗步态（走 sportMode 通道，不是 motorSkill）。
+
+    与其他动作同一条路：把步态名当动作名下发到同一个话题，只是换通道参数。旧实现调
+    MotionManager.run_gait 等切换完成，本层**等不到**：状态订阅在组件进程（Motion_Manager/
+    motion_status.py 那份 rclpy 上下文），角色工具进程另起订阅会与它抢同一个话题，且本层
+    也没有"切换完成"的判据。故只返回脚本回执（指令已下发），不报"已切换"。
+    """
+    gait_type = arguments.get("gait_type", "")
+    if not gait_type:
+        return "gait: gait_type 参数为空"
+    # 白名单从 configs.GAIT_TYPES 派生，不另抄一份：那张表也是 yaml 里 gait 枚举的对照
+    if gait_type not in _VALID_GAITS:
+        return (
+            f"gait: 无效的 gait_type={gait_type!r}，"
+            f"可用步态: {', '.join(sorted(_VALID_GAITS))}"
+        )
+    result = subprocess.run(
+        ["bash", ACTION_SCRIPT, gait_type, ACTION_CHANNEL_GAIT],
+        capture_output=True, text=True, timeout=60,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"gait 执行失败 (code={result.returncode}): {result.stderr or result.stdout}"
+        )
+    return result.stdout.strip()
 
 
 # move：平移距离（米）/ 旋转角度（度）；stop 无需参数
@@ -440,8 +351,8 @@ def move(arguments: Dict[str, Any]) -> Any:
 
 
 _VISION_MODES = {
-    "image": f"python {VISION_DISPATCH_SCRIPT} --mode image --image {{IMAGE_PATH}} --prompt {{PROMPT}}",
-    "front": f"python {VISION_DISPATCH_SCRIPT} --mode front --prompt {{PROMPT}}",
+    "image": f"{sys.executable} {VISION_DISPATCH_SCRIPT} --mode image --image {{IMAGE_PATH}} --prompt {{PROMPT}}",
+    "front": f"{sys.executable} {VISION_DISPATCH_SCRIPT} --mode front --prompt {{PROMPT}}",
 }
 
 
@@ -537,34 +448,187 @@ def _extract_surround_target(output: str):
     return None, None
 
 
-def _to_bool(value: Any) -> bool:
-    """将传入的布尔值规范化（兼容字符串 "true"/"1"/"yes"）。"""
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() in ("true", "1", "yes", "on")
-    return bool(value)
+def _look(name: str, arguments: Dict[str, Any]) -> Any:
+    """look / vision 的共用实现；name 只用于回执与报错里的自称。
 
-
-
-def look(arguments: Dict[str, Any]) -> Any:
-    """look：视觉理解（image 单图分析 / front 前方感知）。
-
-    原地环绕搜索（360° 找目标）已拆分为独立工具 search_old，不再走本工具。
+    起子进程（VISION_DISPATCH_SCRIPT）做视觉理解。取帧在**子进程**里发生：本工具是角色侧
+    tools-bridge 起的另一个进程，帧环在**取帧服务进程**的内存里（skills/camera/frame_producer.py
+    模块头），子进程自己也没有帧 —— 它调 frame_producer 的模块级取帧函数，由后者经
+    FRAME_PRODUCER_SOCKET 向取帧服务要帧（三条分派规则见 frame_producer 模块头）。
+    正常部署（starter.sh 下由 start_agent.py 拉起取帧服务）时这条链路是通的；取不到帧时
+    子进程**报错退出**，本函数据此抛 RuntimeError，不静默返回空画面。
     """
     mode = arguments.get("mode", "")
     prompt = arguments.get("prompt", "")
     image_path = arguments.get("image_path", "")
     cmd_template = _VISION_MODES.get(mode, "")
     if not cmd_template:
-        return f"look: 未知 mode={mode}，可用: {list(_VISION_MODES.keys())}"
+        return f"{name}: 未知 mode={mode}，可用: {list(_VISION_MODES.keys())}"
     if mode == "image" and not image_path:
-        return "look [image]: image_path 参数必填"
+        return f"{name} [image]: image_path 参数必填"
     cmd_str = cmd_template.replace("{IMAGE_PATH}", image_path).replace("{PROMPT}", prompt)
-    result = subprocess.run(cmd_str, shell=True, capture_output=True, text=True, timeout=120)
+    result = subprocess.run(cmd_str, shell=True, capture_output=True, text=True,
+                            timeout=VISION_SUBPROCESS_TIMEOUT)
     if result.returncode != 0:
-        raise RuntimeError(f"look [{mode}] 执行失败 (code={result.returncode}): {result.stderr}")
+        raise RuntimeError(
+            f"{name} [{mode}] 执行失败 (code={result.returncode}): {result.stderr or result.stdout}"
+        )
     return result.stdout.strip()
+
+
+def look(arguments: Dict[str, Any]) -> Any:
+    """look：视觉理解（image 单图分析 / front 前方感知）。
+
+    原地环绕搜索（360° 找目标）已拆分为独立工具 search_old，不再走本工具。
+    取帧的进程边界见 _look 的 docstring。
+    """
+    return _look("look", arguments)
+
+
+def vision(arguments: Dict[str, Any]) -> Any:
+    """vision：look 的别名 —— 编排器的工具表里它叫 vision，交互器的叫 look。
+
+    两条名字指同一份实现。参数与取帧链路见 look / _look。
+    """
+    return _look("vision", arguments)
+
+
+def vision_tunables(arguments: Dict[str, Any]) -> Any:
+    """vision_tunables：查看/切换**视觉观测的频率档位**（低/中/高）。
+
+    调的是 vision_observer「隔多久去看一眼帧环」的周期 —— **不是相机抓拍节奏**：帧生产者
+    一直按固定高频抓帧攒环，改它会让相机被抢占得更凶或更懒，所以不开放。改观测周期只影响
+    视觉的实时性与上报频度，不碰相机。
+
+    只收档位名、不收秒数：档位名 → 秒数的唯一出处是 configs.VISION_OBSERVE_RATE_LEVELS，
+    本工具不另抄一份。无参数 = 查询当前档位与生效值（人用 CLI 设过自定义值时要让 LLM 看得见
+    现实，所以回执里连秒数一起报，而不是只报档位名）。
+
+    **只收档位名，不收每轮拼接帧数**（那个字段是给画面内容定尺度的，人用 CLI 改）；
+    查询回执由 render() 渲染，里面连拼接帧数一起报 —— LLM 看得见它，但改不了。
+
+    非法取值返回字符串、不抛异常（与 gait / action 同款）：让 LLM 有机会照着可用档位自己纠偏。
+    覆盖层是**跨进程**的（观测器在组件进程里，每轮现读一次），所以这里写完下一轮才生效。
+    """
+    rate = arguments.get("observe_rate", "")
+    if not rate:  # 无参数 = 查询
+        return _vision_tunables_config.render(_vision_tunables_config.current())
+    if not isinstance(rate, str) or rate not in VISION_OBSERVE_RATE_LEVELS:
+        return (
+            f"vision_tunables: 无效的 observe_rate={rate!r}，"
+            f"可用档位: {', '.join(VISION_OBSERVE_RATE_LEVELS)}"
+        )
+    try:
+        values = _vision_tunables_config.update(
+            observe_interval=VISION_OBSERVE_RATE_LEVELS[rate]
+        )
+    except _vision_tunables_config.TunablesError as exc:
+        return f"vision_tunables: 未修改：{exc}"
+    return f"视觉观测频率已切到「{rate}」。\n" + _vision_tunables_config.render(values)
+
+
+# 本体状态段 → 状态文件。三段各由一个独立后台进程写入（视觉观测器 / 状态观测器 /
+# 运动管理器），文件路径只有 configs/paths.py 一处事实源，这里只做「段名 → 文件」的映射，
+# 不另抄路径、也不解析内容。
+_STATE_FILES: Dict[str, Path] = {
+    "vision": RUNTIME_VISION_OBSERVATION,
+    "system": RUNTIME_ROBOT_STATUS,
+    "motion": RUNTIME_MOTION_STATUS,
+}
+
+
+def robot_state(arguments: Dict[str, Any]) -> Any:
+    """robot_state：读机器狗本体状态快照，原样返回所选段的 YAML 原文。
+
+    只读不写、不做解析：文件头部自带取值语义（null / unknown 各是什么意思），取数就是把
+    原文交出去。**不做失效回落、也不替读方标过期** —— 三段由三个进程各按自己的周期刷新
+    （system 段 60s 整份覆盖、motion 只在状态改变时写 + 2s 心跳、vision 按观测周期追加），
+    能不能采信由读方拿文件里的时间戳自己判。
+
+    文件缺失或为空返回字符串、不抛异常（与 vision_tunables 同款）：写入它的后台进程可能
+    没在跑，这是模型该看到的现实，不是工具故障。消息里只报文件名不报全路径 —— 路径对模型
+    没用，认得出是哪一段就够了。
+    """
+    section = arguments.get("section", "")
+    path = _STATE_FILES.get(section) if isinstance(section, str) else None
+    if path is None:
+        return (f"robot_state: 未知的 section={section!r}，可用: {', '.join(_STATE_FILES)}"
+                f"（vision=视觉观察历史，system=系统状态，motion=运动状态）")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return (f"robot_state [{section}]: 状态文件 {path.name} 不存在，"
+                f"写入它的后台进程可能没在跑")
+    except OSError as exc:
+        return f"robot_state [{section}]: 状态文件 {path.name} 读取失败：{exc}"
+    if not text.strip():
+        return f"robot_state [{section}]: 状态文件 {path.name} 为空，还没有内容写进来"
+    return text
+
+
+def weather(arguments: Dict[str, Any]) -> Any:
+    """weather：查天气（当前天气 + 逐日预报），实现全在 plugin_tools/weather.py。
+
+    这里只是个薄壳，与 vision_tunables 转发给 Orchestrator/vision_tunables.py 同一分工：
+    tool_executor 管「按名分发」，外部服务客户端放各自的模块。天气那条链路要读状态快照取
+    机器狗坐标、要 curl 两个外网接口、要译 WMO 码表，全摊进本文件会让它更臃肿；
+    给模型看的用法说明在 available_tools.yaml，提示词里的场景说明见
+    Interactor/prompts/task_policy.md §2。
+
+    失败不在这里兜：weather.query_weather 抛的 RuntimeError 原样往上走，由桥转成
+    {"error": ...} 交给模型（见模块抬头「抛异常 vs 返回字符串」的约定）。
+    """
+    return _weather_impl.query_weather(arguments)
+
+
+def task_list(arguments: Dict[str, Any]) -> Any:
+    """task_list：读任务 —— task_range 选读哪一批（recent / history），task_id 选整批还是那一条。
+
+    两者不同时生效：**填了 task_id 就只读那一条，task_range 不起作用**（见下面的第三条出口）；
+    task_range 只在**不带**号、要「读一整批」时才决定给哪一批。
+
+    清单是交互器与编排器**共享的一份**（runtime_files/tasks/pending_tasks.yaml，见
+    plugin_tools/task_board.py），只装**未终结**的任务；任务一终结（succeeded / failed /
+    cancelled）就移出清单，单独落到同目录的 <task_id>.yaml。两批就读法不同，task_range 选的就是
+    哪一批：
+    **recent**（清单里还没终结的：pending / executing / stopped / interrupted，即「待做任务」）与
+    **history**（已经终结的那些存档，即「历史任务」）。省略 task_range 等于 recent —— 这是本工具
+    从前的行为。
+
+    四条出口：
+
+    - recent、不给 task_id：原样返回清单文件的**整份原文**—— 不解析、不摘要、不重排，交出去的就是
+      磁盘上的事实。清单还不存在时返回一句提示、不抛异常（还没有任何待做任务是正常状态）；
+    - history、不给 task_id：返回**汇总**——每条只给任务自己的字段、不含执行记录（见
+      task_board.read_history_text：存档一条一个文件、只增不减，几千条的执行记录一次交出去没人
+      看得下）。要看某一条的全文，带它的号再调一次本工具；
+    - 给了 task_id：读那**一条**的全文（task_board.read_task_text）—— **填了号 task_range 就不起作用**
+      （照旧收下、校一遍取值，但不参与决策）：那两批是递进的两站，先在清单里找、找不到再翻存档，
+      所以号是从别处抄来的、不确定它终结没终结时不必填范围；
+    - 号本身不合法（含白名单外字符）抛错，由桥渲染成具体的报错；号只是抄错（两批里都没有）返回
+      说明而不是抛错。
+
+    **只有交互器手里有**这个工具（configs/agents.py 的 INTERACTOR_TOOLS）：编排器那一侧的
+    清单不由它主动读，dsh-plugins/task-context 每轮把清单全文注入它的模型输入。所以本函数是
+    给交互器的按需读点，别把它当两个角色共用的读口。
+
+    读不加锁：写盘走 tmp+rename 原子换，读到的必然是一份完整的文件。
+
+    Args:
+        arguments: 工具参数；task_range 与 task_id 都由本函数自己取（见上）。task_range 的取值
+            已在 available_tools.yaml 的 enum 里约束过一遍，这里仍让 task_board 校一次
+            —— 桥这条路不保证调用方是引擎。
+
+    Returns:
+        整份清单原文、历史汇总、或那一条任务的 YAML 全文；或一句说清为什么没有的说明。
+    """
+    task_range = task_board.check_task_range(arguments.get("task_range"))
+    task_id = arguments.get("task_id")
+    if task_board.is_blank_task_id(task_id):
+        if task_range == task_board.TASK_RANGE_HISTORY:
+            return task_board.read_history_text()
+        return task_board.read_pending_text()
+    return task_board.read_task_text(task_id)
 
 
 def search_old(arguments: Dict[str, Any]) -> Any:
@@ -573,12 +637,17 @@ def search_old(arguments: Dict[str, Any]) -> Any:
     机器狗原地旋转一周、拍摄并分析周围四视角照片，寻找 prompt 描述的目标。
     找到目标（found=true 且解析出 region/x_hirizon）后总是调用 turn2subject.sh 转向该目标；
     interact_with_target 参数当前不生效（沿用 2026-09-02 起的无条件转向行为），仅保留兼容接收。
+
+    交给模型的只有搜索结论：脚本 stdout（转成 JSON 的视觉结论，见 vision_dispatch.run_cmd
+    —— 它的命令流水走 stderr）加末尾一行 `[interact]` 转向结论。转向脚本自己的 `[INFO]`/
+    motion.sh 回显**不往里塞**（那是执行流水，不是结论）；转向失败仍把原文带上，那是出错点。
     """
     prompt = arguments.get("prompt", "")
     if not prompt:
         return "search_old: prompt 参数不能为空"
-    cmd = f"python {VISION_DISPATCH_SCRIPT} --mode surround --prompt {prompt}"
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=120)
+    cmd = f"{sys.executable} {VISION_DISPATCH_SCRIPT} --mode surround --prompt {prompt}"
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True,
+                            timeout=VISION_SUBPROCESS_TIMEOUT)
     if result.returncode != 0:
         raise RuntimeError(f"search_old 执行失败 (code={result.returncode}): {result.stderr}")
     out = result.stdout.strip()
@@ -593,7 +662,9 @@ def search_old(arguments: Dict[str, Any]) -> Any:
             capture_output=True, text=True, timeout=60,
         )
         if turn.returncode == 0:
-            out += f"\n[interact] 已转向目标:\n{turn.stdout.strip()}"
+            # 转向成功只报结论：turn2subject.sh 的 [INFO] 与 motion.sh 的命令回显都是执行流水
+            # （motion.sh 打印什么由它自己定），模型要的是「转没转」这一件事。
+            out += "\n[interact] 已转向目标"
         else:
             out += (
                 f"\n[interact] 转向目标失败 (code={turn.returncode}): "
@@ -637,89 +708,101 @@ def search_and_approach(arguments: Dict[str, Any]) -> Any:
     return out or "(空输出)"
 
 
-def bash(arguments: Dict[str, Any]) -> Any:
-    """bash：直接调用 subprocess 执行命令"""
-    cmd = arguments.get("command", "")
-    if not cmd:
-        return "bash: command 参数为空"
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(f"bash 命令执行失败 (code={result.returncode}): {result.stderr}")
-    out = result.stdout.strip()
-    if result.stderr:
-        out = f"{out}\n[stderr] {result.stderr.strip()}"
-    return out or "(空输出)"
+# def bash(arguments: Dict[str, Any]) -> Any:
+#     """bash：直接调用 subprocess 执行命令"""
+#     cmd = arguments.get("command", "")
+#     if not cmd:
+#         return "bash: command 参数为空"
+#     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+#     if result.returncode != 0:
+#         raise RuntimeError(f"bash 命令执行失败 (code={result.returncode}): {result.stderr}")
+#     out = result.stdout.strip()
+#     if result.stderr:
+#         out = f"{out}\n[stderr] {result.stderr.strip()}"
+#     return out or "(空输出)"
 
 
-# 导航轮询参数
-_NAVIGATION_POLL_INTERVAL = 1.0   # 秒，导航状态轮询间隔
-_NAVIGATION_TIMEOUT = 300         # 秒，导航整体超时上限，防止无限等待
+# 导航轮询间隔与整体超时上限取 configs（NAVIGATION_POLL_INTERVAL / NAVIGATION_TIMEOUT），
+# 不在本文件另立一份：Motion_Manager/motion_manager.py 用的是同一对。
+# 导航服务的 HTTP 一律经 plugin_tools/nav_tools.py（唯一客户端）—— 本文件既不 import
+# requests，也不 import 那组 URL（它们在 configs/paths.py）。
 
 
 def _waypoint_nav_supported_targets() -> set:
     """返回导航支持的目标地标集合（target 的选择范围）。
 
-    由两部分取并集：
-        load_supported_locations()   — configs.configs 读取 SUPPORTED_LOCATIONS_FILE 的名单
-        landmarks.json 的 name 字段  — 导航技能脚本目录下的地标清单
-    以 landmarks.json 为动态来源，新增地标时无需再改代码。
+    唯一来源是 configs.configs.load_supported_locations()，它读 SUPPORTED_LOCATIONS_FILE
+    （skills/waypoint_nav/landmarks.json）。地标清单是动态的，新增地标无需改代码。
 
-    landmarks.json 缺失或解析失败时，静默退化为仅使用 SUPPORTED_LOCATIONS_FILE 名单。
+    这里原先把同一份 landmarks.json 再读一遍取 name 后求并集（当时那份名单另有一个路径
+    常量指向它）；两处现已指向同一份文件，并集是同一份名单与自己的并集，故去掉那次重复
+    读取，行为不变。
     """
     from configs.configs import load_supported_locations
 
-    targets = set(load_supported_locations())
-    try:
-        data = json.loads(
-            NAVIGATION_LANDMARKS_FILE.read_text(encoding="utf-8")
-        )
-    except Exception:
-        return targets
-    if isinstance(data, list):
-        targets |= {
-            item.get("name")
-            for item in data
-            if isinstance(item, dict) and item.get("name")
-        }
-    return targets
+    return set(load_supported_locations())
 
 
 def waypoint_nav_supported_targets() -> List[str]:
     """导航支持的目标地标列表（已排序）。
 
-    供 tool_parser 注入到 waypoint_nav 工具说明中，让 LLM 选择合法 target，
-    与 waypoint_nav() 的校验集合（SUPPORTED_LOCATIONS_FILE ∪ landmarks.json name）保持同步。
+    消费方是 bridge 的 `list`：把这份名单注入 waypoint_nav 的工具说明（`_inject_supported_targets`），
+    让模型选合法 target，与 waypoint_nav() 的校验集合（SUPPORTED_LOCATIONS_FILE）同源
+    —— 校验改了口径，模型看到的名单跟着改，不会两处各说一套。
+    （tool_parser 的 `_build_tools_text` 有一份同样的注入，那条路在 dsh 角色系统里已无调用方。）
     """
     # print(sorted(_waypoint_nav_supported_targets()))
     return sorted(_waypoint_nav_supported_targets())
 
 
+def _auto_relocalize() -> None:
+    """按 navigation_api.md §4.2 启动自动重定位；不成则抛错。
+
+    成功判据是应答体的 `message == "success"`（形如
+    {"code":0,"message":"success","data":{"task_id":"loc_…"}}）。它只表示服务端**受理**了，
+    不表示底盘真的定位好了 —— 是否真定位好由紧随其后的导航自己暴露（没恢复，go 仍会失败）。
+    """
+    from plugin_tools import nav_tools
+
+    reply = nav_tools.relocalize(NAVIGATION_REQUEST_TIMEOUT)
+    if reply == "":
+        raise RuntimeError("waypoint_nav: 当前地图自动定位失败（导航服务没有应答）")
+    if not isinstance(reply, dict):
+        raise RuntimeError(
+            f"waypoint_nav: 当前地图自动定位失败（应答不是 JSON: {str(reply)[:200]}）")
+    if reply.get("message") != "success":
+        raise RuntimeError(
+            f"waypoint_nav: 当前地图自动定位失败"
+            f"（code={reply.get('code')!r}, message={reply.get('message')!r}）")
+
+
 def waypoint_nav(arguments: Dict[str, Any]) -> Any:
     """waypoint_nav：定点导航至指定地标。
 
-    调用导航后端 HTTP 接口发起导航（POST /api/v1/navigation/go），
-    随后每隔 1 秒轮询导航状态（GET /api/v1/navigation/status）：
-        SUCCESS            → 返回成功，进入下一步骤
-        FAILED / CANCELLED → 结束工具调用，返回终止状态
-        RUNNING / IDLE     → 继续等待导航完成
+    执行流程：
+        ① 校验 target 是否在支持地点名单里（_waypoint_nav_supported_targets）—— 放最前，
+           它最便宜，且服务不在时这条提示（可用地点）比「服务未启动」更有用；
+        ② 服务与定位状态校验：拿不到定位状态应答 → 失败「导航服务未启动」；
+           message != "success" → 失败「导航服务出错」；localized 明确为 false → 先按
+           navigation_api.md §4.2 自动重定位，失败则「当前地图自动定位失败」；
+        ③ 发起导航（POST /api/v1/navigation/go），随后每 NAVIGATION_POLL_INTERVAL 秒轮询
+           GET /api/v1/navigation/status：
+               SUCCESS            → 返回成功，进入下一步骤
+               FAILED / CANCELLED → 结束工具调用，返回终止状态
+               RUNNING / IDLE     → 继续等待导航完成
+
+    导航服务的 HTTP 全走 plugin_tools/nav_tools.py（唯一客户端），本函数不自己发请求。
     """
-    # return f"已经到达目的地{arguments}"
     import time
-    import requests
 
-    t0=time.time()
-
-    from configs.configs import (
-        NAVIGATION_GO_URL,
-        NAVIGATION_STATUS_URL,
-    )
+    from plugin_tools import nav_tools
 
     # 参数名兼容：YAML 定义为 target，同时兼容 destination
     landmark = str(arguments.get("target") or arguments.get("destination") or "").strip()
     if not landmark:
         raise RuntimeError("waypoint_nav: target 参数为空")
 
-    # 校验目标地标是否在支持范围内（SUPPORTED_LOCATIONS_FILE ∪ landmarks.json name 字段），
+    # 校验目标地标是否在支持范围内（SUPPORTED_LOCATIONS_FILE，即 landmarks.json 的 name 字段），
     # 不在范围内直接失败
     supported_targets = _waypoint_nav_supported_targets()
     if landmark not in supported_targets:
@@ -728,56 +811,51 @@ def waypoint_nav(arguments: Dict[str, Any]) -> Any:
             f"可用地点: {', '.join(sorted(supported_targets))}"
         )
 
-    # ---- 发起导航 ----
-    try:
-        resp = requests.post(
-            NAVIGATION_GO_URL,
-            json={"destination": landmark},
-            timeout=10,
-        )
-        resp.raise_for_status()
-        body = resp.json()
-    except Exception as e:
-        raise RuntimeError(f"waypoint_nav 发起导航失败: {e}")
-    if body.get("code") != 0:
+    # ---- 导航前置校验 ----
+    reply = nav_tools.localization_status(NAVIGATION_REQUEST_TIMEOUT)
+    if reply == "":
+        raise RuntimeError("waypoint_nav: 导航服务未启动（定位状态接口没有应答）")
+    if not isinstance(reply, dict):
         raise RuntimeError(
-            f"waypoint_nav 发起导航失败: {body.get('message', body)}"
-        )
+            f"waypoint_nav: 导航服务出错（定位状态接口的应答不是 JSON: {str(reply)[:200]}）")
+    if reply.get("message") != "success":
+        raise RuntimeError(
+            f"waypoint_nav: 导航服务出错"
+            f"（code={reply.get('code')!r}, message={reply.get('message')!r}）")
+
+    data = reply.get("data")
+    if isinstance(data, dict) and data.get("localized") is False:
+        _auto_relocalize()
+
+    # ---- 发起导航 ----
+    reply = nav_tools.navigate(landmark, NAVIGATION_REQUEST_TIMEOUT)
+    if reply == "":
+        raise RuntimeError("waypoint_nav 发起导航失败: 导航服务没有应答")
+    if not isinstance(reply, dict):
+        raise RuntimeError(f"waypoint_nav 发起导航失败: 应答不是 JSON（{str(reply)[:200]}）")
+    if reply.get("code") != 0:
+        raise RuntimeError(f"waypoint_nav 发起导航失败: {reply.get('message', reply)}")
+
     # ---- 轮询导航状态，直至任务结束 ----
-    deadline = time.time() + _NAVIGATION_TIMEOUT
+    deadline = time.time() + NAVIGATION_TIMEOUT
     while time.time() < deadline:
-        time.sleep(_NAVIGATION_POLL_INTERVAL)
-        try:
-            status_resp = requests.get(NAVIGATION_STATUS_URL, timeout=10)
-            status_resp.raise_for_status()
-            status_body = status_resp.json()
-            status = (status_body.get("data") or {}).get("status", "")
-        except Exception as e:
-            raise RuntimeError(f"waypoint_nav 查询状态失败: {e}")
+        time.sleep(NAVIGATION_POLL_INTERVAL)
+        status_reply = nav_tools.navigation_status(NAVIGATION_REQUEST_TIMEOUT)
+        if not isinstance(status_reply, dict):
+            raise RuntimeError(f"waypoint_nav 查询状态失败: {status_reply!r}")
+        data = status_reply.get("data")
+        data = data if isinstance(data, dict) else {}
+        status = data.get("status", "")
 
         if status == "SUCCESS":
             return "✅ 导航成功到达目的地"
-        if status in ("FAILED", "CANCELLED"):
-            destination = (status_body.get("data") or {}).get("destination")
-            raise RuntimeError(
-                f"navigation 导航终止（status={status}，destination={destination}）"
-            )
+        # if status in ("FAILED", "CANCELLED"):
+        #     raise RuntimeError(
+        #         f"navigation 导航终止（status={status}，destination={data.get('destination')}）"
+        #     )
         # IDLE / RUNNING / 未知状态：继续等待
 
-    raise RuntimeError(f"navigation 导航超时（{_NAVIGATION_TIMEOUT}s 内未完成）")
-
-
-def task_replan(arguments: Dict[str, Any]) -> Any:
-    """task_replan：根据任务描述重新规划任务（转发给 InfoCompleter.formulator）"""
-    task_description = arguments.get("task_description", "")
-    if not task_description:
-        return "task_replan: task_description 参数为空"
-
-    from InfoCompleter.formulator import formulate_all
-
-    result = formulate_all(task_description)
-
-    return json.dumps(result, ensure_ascii=False, indent=2)
+    raise RuntimeError(f"navigation 导航超时（{NAVIGATION_TIMEOUT}s 内未完成）")
 
 
 # VLN 语言指令导航：进程超时需高于 OMNINAV_RESULT_TIMEOUT_SEC（默认 900s），留足缓冲
@@ -847,22 +925,119 @@ def vision_language_nav(arguments: Dict[str, Any]) -> Any:
     raise RuntimeError("vision_language_nav: 执行成功但 stdout 为空")
 
 
-# 内置工具名 → 独立执行函数
+_BULL_CHASE_MODULE_NAME = "bull_chase_skill"
+
+
+def _bull_chase_module():
+    """进程内加载并返回斗牛技能模块（skills/bull-chase/scripts/bull_chase.py）。
+
+    斗牛 §2 的视觉搜索用 vision mode=front 取帧，而取帧本身**已经跨进程**了
+    （frame_producer.py 的模块级函数经 FRAME_PRODUCER_SOCKET 找取帧服务）——所以「子进程读不到
+    帧」这个理由不再成立。这里仍按进程内加载：斗牛还牵着 ROS init / 复用与按路径加载，
+    改回子进程形态要单独验证（不在取帧收口这一单里）。
+
+    目录名 bull-chase 带连字符、不能按包路径 import，所以按文件路径加载；模块缓存进
+    sys.modules（exec 前先塞，兼容模块内的自引用），避免每次工具调用重复加载。
+    """
+    import importlib.util
+
+    mod = sys.modules.get(_BULL_CHASE_MODULE_NAME)
+    if mod is not None:
+        return mod
+    spec = importlib.util.spec_from_file_location(_BULL_CHASE_MODULE_NAME, BULL_CHASE_SCRIPT)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"bull_chase: 无法加载技能模块 {BULL_CHASE_SCRIPT}")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[_BULL_CHASE_MODULE_NAME] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _current_task_cancel_event(task_id: str) -> Optional[threading.Event]:
+    """取当前任务的协作取消事件（云端 interrupt 置位 → 长流程工具据此及时收场）。
+
+    任务池的登记处是 Communicator.task_exit。**本树目前没有进程往里登记**：登记方原本是
+    receiver 的 create 路径（与任务线程同进程，`threading.Event` 才能跨线程读写），而 receiver
+    已改成只转投 rolebus 事件的薄桥 —— 于是这里一律取不到、返回 None，调用方按「无取消信号」
+    跑完（云端 interrupt 不再能即刻掐断斗牛）。要恢复得让 orchestrator 角色收到
+    `cloud_update{stop}` 时自己登记一份取消事件，属新设计。本函数永不抛异常。
+    """
+    if not task_id:
+        return None
+    try:
+        from Communicator.task_exit import get_task
+
+        event = (get_task(task_id) or {}).get("cancel_event")
+        return event if hasattr(event, "is_set") else None
+    except Exception:
+        return None
+
+
+def bull_chase(arguments: Dict[str, Any]) -> Any:
+    """bull_chase：斗牛（无入参的预设表演动作）。
+
+    整场斗牛在**本进程内**跑完（见 _bull_chase_module）：发 ctl 00 开启 → 只等算法状态
+    → 收到 12（冲刺完成）就做一轮视觉搜索并上报 ctl 03(objpos) → 继续等状态 → 收到退出码
+    01/02/08/11/14 收场（发 00 之后不先搜一轮，首轮也由 12 触发）。目标描述固定取
+    configs.prompts.BULL_CHASE_PROMPT，没有工具入参（arguments 一律忽略，
+    只读主循环注入的 task_id 用于取取消事件）。
+
+    返回 JSON 字符串：{"result": 退出情况, "turns": 已进行的轮数}。
+    视觉工具调用失败（取帧失败 / 视觉接口报错 / 输出里解析不出 objpos）会抛 RuntimeError，
+    由 parse_and_execute 记为 error、结束本工具。
+    占位 prompt 未填时直接返回提示，不空跑一场斗牛。
+    """
+    prompt = str(BULL_CHASE_PROMPT or "").strip()
+    if not prompt:
+        return ("bull_chase: 目标 prompt 未配置（configs.prompts.BULL_CHASE_PROMPT 为空占位），"
+                "填写该配置后本工具才能执行")
+    result = _bull_chase_module().run_bull_chase(
+        prompt=prompt,
+        cancel_event=_current_task_cancel_event(arguments.get("task_id", "")),
+    )
+    return json.dumps(result, ensure_ascii=False)
+
+
+def bull_chase_stop(arguments: Dict[str, Any]) -> Any:
+    """bull_chase_stop：停止斗牛（无入参的收场动作）。
+
+    往 /bullfight_ctl 发一条 ctl 01，算法据此收场并回报 08；正在跑的 bull_chase 收到 08
+    后结束并以「08：用户下发结束指令」汇报。本工具只下发信令、不等回执，也不读任务池，
+    故斗牛进行中（bull_chase 占着另一个 bridge 子进程）也调得动。
+    arguments 一律忽略。
+
+    返回 JSON 字符串：{"result": 下发情况, "sn": ..., "subscriber_seen": true/false}。
+    """
+    return json.dumps(_bull_chase_module().stop_bull_chase(), ensure_ascii=False)
+
+
+# 内置工具名 → 独立执行函数。注册只认 available_tools.yaml 的条目（见
+# ToolExecutor.register_from_yaml）：这里多出来的名字（如 "tts" 别名）不会暴露给模型，
+# 只是让 yaml 侧改名时有个退路。
 _BUILTIN_EXECUTORS: Dict[str, callable] = {
     "speak": speak,
     "tts": speak,
     "listen": listen,
-    "voice_interact": voice_interact,
     "speak_listen": speak_listen,
+    "audio_interact": audio_interact,
+    "speak_input": speak_input,
+    "action": action,
     "do_action": do_action,
+    "gait": gait,
     "move": move,
+    "vision": vision,
     "look": look,
+    "vision_tunables": vision_tunables,
+    "robot_state": robot_state,
+    "weather": weather,
+    "task_list": task_list,
     "search_old": search_old,
     "search_and_approach": search_and_approach,
-    "bash": bash,
+    "bull_chase": bull_chase,
+    "bull_chase_stop": bull_chase_stop,
+    # "bash": bash,
     "waypoint_nav": waypoint_nav,
     "vision_language_nav": vision_language_nav,
-    "task_replan": task_replan,
 }
 
 
@@ -876,7 +1051,7 @@ class ToolExecutor:
     提供 OpenAI tool_calls 的解析与分发执行。
 
     Attributes:
-        _executors — 工具名 → 执行函数 的注册表
+        _executors  — 工具名 → 执行函数 的注册表
     """
 
     def __init__(
@@ -884,9 +1059,6 @@ class ToolExecutor:
         tools: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
         self._executors: Dict[str, callable] = {}
-        # REPORT_TOOLS 预播报文案（LLM user_reply）：由主循环经 set_pre_announce 注入，
-        # parse_and_execute 一次性消费，在调用 REPORT_TOOLS 工具前先播报再执行技能。
-        self._pre_announce_text: str = ""
         if tools:
             self.register_from_yaml(tools)
 
@@ -905,7 +1077,7 @@ class ToolExecutor:
     def _build_executor(self, name: str, tool: Dict[str, Any]) -> callable:
         """根据工具名构造执行函数。
 
-        内置工具（speak/listen/voice_interact 等）映射到模块级的 {tool_name} 函数；
+        内置工具（speak/listen/speak_listen 等）映射到模块级的 {tool_name} 函数；
         其余工具按 extra.execute 字符串执行（eval / exec）。
         """
         extra = tool.get("extra", {})
@@ -920,6 +1092,15 @@ class ToolExecutor:
             return executor
 
         # ---- 其他工具：执行 execute 字符串（eval / exec）----
+        # 空字符串也是合法的 exec 模块（ast.parse 不报错），不在这里拦住就会造出一个
+        # 「调用成功、返回空串」的执行器：工具表说这个工具存在，它却什么都不做，模型
+        # 只会看到空结果。工具表与执行器对不上是配置错误，按配置错误处理——注册时就炸。
+        if not execute_str.strip():
+            raise RuntimeError(
+                f"[{name}] 既不是内置工具（_BUILTIN_EXECUTORS），也没有 extra.execute，"
+                f"没有可执行的实现"
+            )
+
         exec_mode = "eval"
         try:
             ast.parse(execute_str, mode="eval")
@@ -957,13 +1138,30 @@ class ToolExecutor:
         """检查工具是否已注册。"""
         return name in self._executors
 
-    def set_pre_announce(self, text: str) -> None:
-        """设置下一次 parse_and_execute 在调用 REPORT_TOOLS 工具前要播报的文案。
+    # ---- 公开：执行单个工具 --------------------------------------------------
 
-        由主循环（task_loop）把 LLM 本轮的 user_reply 注入进来；
-        文案为一次性，parse_and_execute 消费后即清空。
+    def execute_tool(
+        self,
+        name: str,
+        arguments: Dict[str, Any],
+    ) -> Any:
+        """按名执行一个工具。
+
+        Args:
+            name:      工具名，必须已注册（白名单校验由调用方先做）。
+            arguments: 参数，原样传给执行器。
+
+        Returns:
+            执行器的返回值。
+
+        Raises:
+            KeyError: name 不在注册表里——调用方应先按白名单校验过名字。
         """
-        self._pre_announce_text = text or ""
+        run = self._executors.get(name)
+        if run is None:
+            raise KeyError(f"工具 {name!r} 没有执行器：注册表与工具清单不一致")
+
+        return run(arguments)
 
     # ---- 公开：解析 & 执行 --------------------------------------------------
 
@@ -977,18 +1175,11 @@ class ToolExecutor:
 
         Args:
             tool_calls:  request_llm_with_messages 的返回值
-            task_id:       当前任务 ID（透传给执行器，voice_interact 等需要）
+            task_id:       当前任务 ID（透传给需要它的执行器，如 bull_chase）
 
         Returns:
             工具执行结果字典列表，每项包含 tool_name、params、result、status
         """
-        # —— REPORT_TOOLS 预播报（一次性）——
-        # task_loop 等主循环在调用前已把 LLM 的 user_reply 经 set_pre_announce 注入。
-        # 取出后立即清空：本批次没用上就丢弃，避免残留播报到后续批次。
-        pre_announce = self._pre_announce_text
-        self._pre_announce_text = ""
-        announced = False
-
         results: List[Dict[str, Any]] = []
         for tc in tool_calls:
             func = tc.get("function", {})
@@ -1010,11 +1201,9 @@ class ToolExecutor:
             else:
                 arguments = raw_args
 
-            # 系统级参数注入：voice_interact 需要当前任务 ID，由主循环透传，始终覆盖 LLM 填的值
-            if name == "voice_interact":
-                arguments["task_id"] = task_id or ""
-            # speak_listen 需要当前任务 ID 定位进度文件（task_progress.yaml）以构造上报快照，由主循环透传
-            if name == "speak_listen":
+            # bull_chase 是长流程（一整场斗牛可能跨多轮、跑几分钟）：透传 task_id 供它从
+            # task_exit 任务池取协作取消事件，云端 interrupt 时能及时收场（见 bull_chase）
+            if name == "bull_chase":
                 arguments["task_id"] = task_id or ""
 
             executor = self.get_executor(name)
@@ -1026,21 +1215,6 @@ class ToolExecutor:
                     "status": "error",
                 })
                 continue
-
-            # —— REPORT_TOOLS 预播报：先播报，再执行技能 ——
-            # 调用 configs.configs.REPORT_TOOLS（上报/播报类工具，如 look / waypoint_nav）
-            # 中的工具前，先用 tts 播报大模型的 user_reply（告知用户任务进展），
-            # 播完再执行技能。同一批只播报一次。
-            if (
-                pre_announce
-                and not announced
-                and name in REPORT_TOOLS
-            ):
-                announced = True
-                try:
-                    speak({"text": pre_announce})
-                except Exception as e:
-                    print(f"[ToolExecutor] 播报 user_reply 失败: {e}", file=sys.stderr)
 
             try:
                 result = executor(arguments)

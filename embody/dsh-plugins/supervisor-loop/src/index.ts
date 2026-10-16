@@ -5,31 +5,48 @@
  * interactor / orchestrator / planner 由 rolebus 事件唤醒（`rolebus.resident: true`，
  * 见 ../rolebus/src/resident.ts），监督器不接任何入站事件——rolebus 事件目录里没有一条
  * target 是 supervisor 的条目，它只发不收。它的唤醒源是本插件：**每隔 intervalMs 读一遍
- * 配置里的观测 yaml（视觉观察、本体状态），把原文拼成一轮输入交给本角色 agent**，
+ * 配置里的观测 yaml（本部署的三份：视觉观察 / 本体状态 / 运动状态，见 Supervisor/resident.patch.yml，
+ * 路径来自 configs/paths.py），把原文拼成一轮输入交给本角色 agent**，
  * agent 判断这一轮有没有需要告警的事件：有就调 rolebus 的发件工具，没有就结束本轮。
  *
  * 因此本插件持有本角色 agent 的整个生命周期（建/续接/拆），rolebus 对它的 `resident`
  * 始终为 false——两个插件都想持有同一个会话就会互相踩（同一会话 id 的写租约只有一个持有者）。
  * 会话 id 与建/续接的二选一手法与 rolebus 的常驻形态完全一致：进程内有同 id 就复用；
  * 否则看 `sessionPersistence.stat`，有落盘会话走 `resume` 续接上一次的上下文，没有才 `create`。
- * 人设、工具面按本角色 profile 解析，只有模型要在这里显式给（`agentDefaultModel.currentSelection()`）
- * ——引擎在建 agent 时定 route，不给就是空 provider/model，第一轮直接失败。
+ * 人设、工具面按本角色 profile 解析，模型要在这里显式给（`agentDefaultModel.currentSelection()`，
+ * 可选地被本插件 config 的 `modelProvider` 换成另一条路由）——引擎在建 agent 时定 route，
+ * 不给就是空 provider/model，第一轮直接失败。
  *
  * 四条实现约定：
- *   1) **不解析 YAML**：观测文件按原文读进来。yaml 解析要么引入 `yaml` 运行时依赖，
- *      要么自己写一半，而模型读 yaml 原文没有障碍；文件读不到时把失败原因原样交给模型
- *      （观测源本身异常也是一条可告警的事实），不静默跳过、也不当成空轮。
- *   2) **首轮在一个间隔之后**：启动不跑模型（与其余角色的常驻形态一致），进程起来时
- *      没有任何问候，也没有任何模型请求。
+ *   1) **不解析 YAML，但去掉注释**：观测文件按原文读进来，只把 `#` 注释切掉（见
+ *      {@link stripComments}）——行尾注释与整行注释都不进上下文。**注释不传给模型**是
+ *      2026-10-14 定的：注释是写给人看的，模型侧的口径只有人设速查那一份，而这两份带注释的
+ *      观测里注释占了原文一半以上，每轮送一遍就是白花 token（文件本身照旧带注释）。yaml
+ *      解析要么引入 `yaml` 运行时依赖，要么自己写一半，而模型读 yaml 原文没有障碍；文件读不到
+ *      时把失败原因原样交给模型（观测源本身异常也是一条可告警的事实），不静默跳过、也不当成空轮。
+ *   2) **首轮迟到一个 `firstTickDelayMs`**：启动不跑模型（与其余角色的常驻形态一致），
+ *      进程起来时没有任何问候，也没有任何模型请求；第一个**被处理**的观察落在第一个
+ *      ≥ `firstTickDelayMs` 的间隔边界上，之前的每一跳都丢掉（不打日志，同第 3 条）。
+ *      为什么要这一条：监督器看的三份观测文件在本进程起来之前就在盘上（上一轮留下的），
+ *      若本进程一起来就读，读到的是**上一轮的账**——真机实测报过「通信链路中断…距今约
+ *      3 小时」，一分钟后又报「链路恢复」。等满一个最长的产出周期，盘上那份已被本轮的
+ *      观测器至少覆盖写过一次。取值见 configs/configs.py 的 SUPERVISOR_FIRST_TICK_DELAY_SEC
+ *      （0 = 不延迟：本轮没有观测器可等时用，见 scripts/role-daemon.sh 过桥那一段）。
  *   3) **上一轮没跑完就跳过本轮**：观察是采样，不是队列——上一轮的读数已被这一轮的新读数
  *      取代，补跑一串过期观察没有意义。跳过不打日志：间隔是秒级而一轮要跑几十秒，跳过是常态，
  *      打出来会占满终端；要看一轮的耗时，取会话日志里相邻两条观测抬头的间隔。
  *   4) **日志到上限就轮转**：这是唯一一个「跑不完」的角色，会话日志只增不减（引擎没有
  *      裁剪/保留接口，压缩也不动原始日志）。所以当前会话的日志到 `maxSessionBytes` 就换成
  *      一份新会话，**不带上一份的任何记忆**：它按当前观测从零判断，会把它看到的异常重新报
- *      一遍——与重启一次（scripts/role-daemon.sh 每次启动也换一份空会话）语义相同。
- *      同一份会话换不回来（create 见盘即抛 SessionAlreadyExistsError），所以每次轮转派生一个
- *      新 id，旧的那份由 scripts/role-daemon.sh 在下次启动时归档。
+ *      一遍——与重启一次（本角色重启续接的是基础 id 那一份）语义相近，差别是重启不换 id、
+ *      轮转要换。同一份会话换不回来（create 见盘即抛 SessionAlreadyExistsError），所以每次
+ *      轮转派生一个新 id，旧的那份由 scripts/role-daemon.sh 在下次启动时归档（轮转件没有进程
+ *      会 resume，无论本角色在不在 RESET_ON_START_ROLES 里都归档）。
+ *   5) **每轮顺手清一次 runtime_files/**：按 `cleanupScript` 起一个子进程跑一遍三个目录的
+ *      体积清理（见 {@link runCleanup}，脚本是 Observer/cleanup.py）。它**不经过大模型**：
+ *      不 await、不进上下文、不改本轮的观测输入，模型看到的一个字节都不因此改变；真删了东西
+ *      才记一行日志。放在本插件是因为这种清理要在**运行期间**反复做（开机/收尾各一次的形态
+ *      盖不住运行期长胖），而它是全仓唯一「一直在跑」的循环。
  *
  * 定时器用 `ctx.effect` + `setInterval`（与 rolebus 的收件轮询同一写法，不依赖 timer
  * 插件在不在）。它同时持有事件循环——空闲 agent 自身不持有任何句柄，没有这个定时器
@@ -40,18 +57,21 @@
  * 开发形态，`@deepseek-ai/*` 经 tsconfig paths 指向 src）内解析。与 ../rolebus 同形。
  *
  * 遵循 dsh 引擎函数插件约定：命名导出 name / Config / apply，无默认导出（默认导出
- * 会被 Loader 丢弃命名导出元信息）。Config 用 schemastery 校验，**不设默认值**：
- * intervalMs / sessionId / sources 全是部署选择，由 profile 层给全（漏了就在装载时
- * 报 missing required value，而不是悄悄退化成某个内置节拍）。
+ * 会被 Loader 丢弃命名导出元信息）。Config 用 schemastery 校验：部署选择全是 required
+ * （intervalMs / sessionId / sources / firstTickDelayMs 等由 profile 层给全，漏了就在装载时报
+ * missing required value，而不是悄悄退化成某个内置节拍），另有两个例外——`python` 有环境缺省
+ * `python3`，`modelProvider` 可选（不配 = 不改路由，是合法状态，见其 JSDoc）。
  * @module @embody/dsh-supervisor-loop
  */
 
+import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { brandString } from '@deepseek-ai/dsh-brand'
-import type { Agent, AgentHandle } from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentHandle, ModelSelection } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { SessionId, UserMessage } from '@deepseek-ai/dsh-session'
 // 空类型导入带进 `Context.sessionPersistence` / `Context.agentDefaultModel` 的声明合并
@@ -80,6 +100,12 @@ export interface Config {
   /** 轮询间隔毫秒（「每隔 n 秒」）；必须为正整数，否则 apply 抛错。 */
   intervalMs: number
   /**
+   * 首个**被处理**的观察距装配的延迟毫秒：这段窗口内的每一跳都丢掉。必须为非负整数
+   * （0 = 不延迟），否则 apply 抛错。首个实际观察落在第一个 ≥ 它的间隔边界上，所以取
+   * intervalMs 的整数倍时最直观。只作用于本进程的第**一**次观察：会话轮转不重置它。
+   */
+  firstTickDelayMs: number
+  /**
    * 本角色会话的**基础 id**：进程启动时用它建/续接；一个 DSH_HOME 内同一 id 只能有一个
    * 进程持有。运行期轮转出来的会话是 `<基础 id>.<时间戳>`（见 {@link createRotationAgent}）。
    */
@@ -88,17 +114,40 @@ export interface Config {
   maxSessionBytes: number
   /** 每轮读取的观测源，按数组顺序渲染进上下文；至少一个。 */
   sources: ObserveSource[]
+  /**
+   * 每轮旁路执行的 runtime_files 体积清理脚本（Observer/cleanup.py 的绝对路径，来自
+   * configs/paths.py 的 RUNTIME_CLEANUP_SCRIPT）。空串或文件不存在在 apply 抛错。
+   */
+  cleanupScript: string
+  /** 跑 `cleanupScript` 的解释器可执行文件；该脚本依赖 PyYAML 之类的仓库内依赖。 */
+  python: string
+  /**
+   * 模型路由覆盖：非空时本角色改走这条 provider，模型 id 仍取 `agent-default-model`；
+   * 空串或未配置时照走默认选择（一字不改）。
+   *
+   * 构造覆盖用的 selection 时**不带 `reasoningEffort`**——丢掉档位正是关掉扩展思考的那一动作
+   * （与 `../rolebus` 的同名字段同一机制，见其 `resident.ts` 的 `residentSelection`）。本角色的
+   * agent 由本插件建（rolebus 在监督器这侧不是常驻），所以这个口必须在本插件上，不能借 rolebus。
+   */
+  modelProvider?: string
 }
 
 /** Schemastery 配置：required 在此声明，应用层不再做隐藏默认。 */
 export const Config: z<Config> = z.object({
   intervalMs: z.number().required(),
+  firstTickDelayMs: z.number().required(),
   sessionId: z.string().required(),
   maxSessionBytes: z.number().required(),
   sources: z.array(z.object({
     name: z.string().required(),
     path: z.string().required(),
   })).required(),
+  cleanupScript: z.string().required(),
+  // 唯一一个带默认值的字段：解释器名是环境事实（本部署恒为 python3），不是部署选择；
+  // 写法与 ../tools-bridge 的 python 一致。
+  python: z.string().default('python3'),
+  // 可选（没有 `.required()`，也没给默认）：未配置 = 不改路由，是合法状态而非漏配。
+  modelProvider: z.string(),
 })
 
 /** 观测源读到的东西：原文，或读不到的原因（两者都进上下文，见模块注释）。 */
@@ -107,29 +156,94 @@ export interface SourceText {
   readonly name: string
   /** 配置里写的路径原文，渲染在标题里便于人对照。 */
   readonly path: string
-  /** 文件原文（空文件是 `（文件为空）`），或 `（读取失败：…）`。 */
+  /** 去注释后的原文（去完为空是 `（文件为空）`），或 `（读取失败：…）`。 */
   readonly text: string
 }
 
 /**
- * 读一个观测源，归一成模型可见文本。
+ * 读一个观测源，归一成模型可见文本：**去掉注释**（见 {@link stripComments}）。
  *
  * 读不到时**不抛**：观测源缺失/不可读本身就是要交给模型的事实（监督器的职责之一就是
  * 发现感知端与控制端「没在供数」），静默跳过会让模型把「没有提供」误读成「没有问题」。
  * @param source - 一个观测源的标题与路径。
  * @param cwd - 解析相对路径的基准目录（启动工作目录 = 引擎根）。
- * @returns 该源的标题、路径与文本。
+ * @returns 该源的标题、路径与去注释文本。
  */
 export async function readSource(source: ObserveSource, cwd: string): Promise<SourceText> {
   const path = resolve(cwd, source.path)
   const base = { name: source.name, path: source.path }
   try {
-    const text = (await readFile(path, 'utf8')).trim()
+    const text = stripComments((await readFile(path, 'utf8')).trim())
+    // 文件本来就空、与「整份只有注释」在这里同一条：两者都没有观测值可传。
     return { ...base, text: text === '' ? '（文件为空）' : text }
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     return { ...base, text: `（读取失败：${reason}）` }
   }
+}
+
+/**
+ * 切掉一份观测文本里的注释：行尾注释与整行注释都不进上下文，空行一并去掉。
+ *
+ * 只切注释，**不动值**。判据用 YAML 自己的注释规则——`#` 落在行首或空白之后、且不在引号里
+ * 才是注释起始；所以这里数一遍引号状态（双引号里 `\` 转义下一个字符，单引号里 `''` 是一个
+ * 字面单引号）。值里真含 `#` 的字段由生产端加了引号（如 SSID / 地名，见
+ * Observer/status_observer.py 的渲染），裸值里不可能出现「空白 + `#`」（那在 YAML 里本来就是
+ * 注释）。引号状态判错的后果是不对称的：只可能把注释**漏**在上下文里（值照传），不会把值切掉。
+ * @param text - 观测文件原文（去注释前，已 trim）。
+ * @returns 去注释后的文本；整份只有注释时返回空串。
+ */
+export function stripComments(text: string): string {
+  const kept: string[] = []
+  for (const line of text.split('\n')) {
+    const start = commentStart(line)
+    const body = (start === -1 ? line : line.slice(0, start)).trimEnd()
+    if (body !== '') kept.push(body)
+  }
+  return kept.join('\n')
+}
+
+/**
+ * 一行的注释起始下标。
+ * @param line - 观测文件里的一行原文。
+ * @returns 注释起始下标；这一行没有注释（或引号没闭合、其后不再有注释边界）时返回 `-1`。
+ */
+function commentStart(line: string): number {
+  for (let at = 0; at < line.length; at += 1) {
+    const ch = line.charAt(at)
+    if (ch === '"' || ch === "'") {
+      at = quoteEnd(line, at, ch)
+      continue
+    }
+    if (ch === '#' && (at === 0 || line.charAt(at - 1) === ' ' || line.charAt(at - 1) === '\t')) {
+      return at
+    }
+  }
+  return -1
+}
+
+/**
+ * 从起始引号找它这一行的收尾引号。
+ * @param line - 观测文件里的一行原文。
+ * @param start - 起始引号的下标。
+ * @param quote - 起始引号（`"` 或 `'`）。
+ * @returns 收尾引号的下标；这一行里没有收尾引号时返回行尾下标（其后当作没有注释边界）。
+ */
+function quoteEnd(line: string, start: number, quote: string): number {
+  for (let at = start + 1; at < line.length; at += 1) {
+    const ch = line.charAt(at)
+    if (quote === '"' && ch === '\\') {
+      at += 1
+      continue
+    }
+    if (ch !== quote) continue
+    if (quote === "'" && line.charAt(at + 1) === "'") {
+      at += 1
+      continue
+    }
+    return at
+  }
+  return line.length
 }
 
 /**
@@ -200,18 +314,34 @@ async function whenCompositionLoaded(ctx: Context): Promise<void> {
 }
 
 /**
+ * 本次建 agent 用的模型选择：未配 `modelProvider` 时就是组合解析出的默认值（一字不改）。
+ *
+ * 非空时只换 provider、**丢掉 `reasoningEffort`**——那条镜像路由声明了推理档位而这里不选档位，
+ * 线上就是 thinking 的关闭值（见 `Config.modelProvider`）。与 `rolebus/src/resident.ts` 的
+ * `residentSelection` 逐字同形：两个插件各建各的常驻 agent，这一小段没有共享去处。
+ * @param defaults - `agentDefaultModel.currentSelection()` 的结果。
+ * @param modelProvider - 归一化后的路由覆盖值；空串表示不覆盖。
+ * @returns 交给 `agents.create` / `agents.resume` 的 agentOptions。
+ */
+function loopSelection(defaults: ModelSelection, modelProvider: string): ModelSelection {
+  if (modelProvider === '') return defaults
+  return { provider: modelProvider, model: defaults.model }
+}
+
+/**
  * 建出本角色的 agent（幂等；不发送任何消息）：进程内已有就复用，有落盘会话就续接。
  * @param ctx - 已注入 `agents` / `agentDefaultModel` / `sessionPersistence` 的 context。
  * @param sessionId - 本角色会话 id（= `Config.sessionId`）。
+ * @param modelProvider - 归一化后的模型路由覆盖值（见 {@link loopSelection}）。
  * @returns 该 agent 与它的所有权。
  */
-async function openLoopAgent(ctx: Context, sessionId: SessionId): Promise<LoopStartup> {
+async function openLoopAgent(ctx: Context, sessionId: SessionId, modelProvider: string): Promise<LoopStartup> {
   const existing = ctx.agents.get(sessionId)
   if (existing !== undefined) {
     return { agent: existing, owned: false, dispose: async () => undefined }
   }
   await whenCompositionLoaded(ctx)
-  const agentOptions = ctx.agentDefaultModel.currentSelection()
+  const agentOptions = loopSelection(ctx.agentDefaultModel.currentSelection(), modelProvider)
   // 显式二选一，不做 try/catch 兜底：会话在不在由持久化层回答，不是猜出来的。
   const stored = await ctx.sessionPersistence.stat(sessionId)
   const handle: AgentHandle = stored === undefined
@@ -228,13 +358,15 @@ async function openLoopAgent(ctx: Context, sessionId: SessionId): Promise<LoopSt
  * `SessionAlreadyExistsError`——那个错误类在本包里没有别的用处，不值得为它引一个运行时导入。
  * @param ctx - 已注入 `agents` / `agentDefaultModel` / `sessionPersistence` 的 context。
  * @param base - 基础会话 id（= `Config.sessionId`），轮转 id 由它派生。
+ * @param modelProvider - 归一化后的模型路由覆盖值（见 {@link loopSelection}）；轮转出来的
+ *   会话必须与启动那份走同一条路由，否则轮转一次思考就自己开回来了。
  * @returns 新会话的 agent 与它的所有权（一定是 `owned: true`：这个 id 不可能是别人建的）。
  * @throws 三个候选 id 都撞上已有会话（正常部署下不可能，除非时钟被拨回去）。
  */
-async function createRotationAgent(ctx: Context, base: string): Promise<LoopStartup> {
+async function createRotationAgent(ctx: Context, base: string, modelProvider: string): Promise<LoopStartup> {
   const stem = `${base}.${localStamp(new Date())}`
   await whenCompositionLoaded(ctx)
-  const agentOptions = ctx.agentDefaultModel.currentSelection()
+  const agentOptions = loopSelection(ctx.agentDefaultModel.currentSelection(), modelProvider)
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     const sessionId = brandString<SessionId>(attempt === 1 ? stem : `${stem}-${attempt}`)
     if (await ctx.sessionPersistence.stat(sessionId) !== undefined) continue
@@ -271,22 +403,122 @@ function localNow(): string {
     + ` ${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}（${offset}）`
 }
 
+/** 一次清理的结论：目录名（`logs` / `tasks` / `photos`）→ 本轮删掉的个数。 */
+export interface CleanupOutcome {
+  /** 目录名 → 本轮删掉的个数。 */
+  readonly removed: Record<string, number>
+}
+
+/**
+ * 旁路跑一次 runtime_files 的体积清理，真删了东西才记一行日志；**永不抛**。
+ *
+ * 跑的是 `python <script> --runtime-sweep --json`（脚本见 `Config.cleanupScript`）。判据全在
+ * 脚本那一侧（两档水位在 configs/configs.py，哪些文件可删在 Observer/cleanup.py），本函数只
+ * 负责起进程、读结论、写日志——插件里不复制任何一条清理规则。
+ *
+ * **没删东西是常态**（目录没到触发线），那时完全安静。起不来（解释器/脚本不在）、非零退出、
+ * 输出不是 JSON 各打一行告警并返回 `undefined`，下一轮照常重试：清理是旁路，一次失败不许
+ * 影响本轮观察，所以它不抛、调用点不需要 `.catch`。
+ * @param options - 解释器可执行文件与脚本绝对路径（即插件 config 的那两个字段）。
+ * @returns 各目录删掉的个数；任何失败都返回 `undefined`。
+ */
+export async function runCleanup(
+  options: { python: string, script: string },
+): Promise<CleanupOutcome | undefined> {
+  try {
+    const result = await new Promise<{ code: number | null, stdout: string, stderr: string }>(settle => {
+      const child = spawn(options.python, [options.script, '--runtime-sweep', '--json'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      let stdout = ''
+      let stderr = ''
+      child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8') })
+      child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8') })
+      // 起不来（解释器不在之类）走 'error'：它先于 'close' 到达，message 就是失败原因。
+      child.on('error', (error: Error) => { settle({ code: null, stdout: '', stderr: error.message }) })
+      child.on('close', (code: number | null) => { settle({ code, stdout, stderr }) })
+    })
+    if (result.code !== 0) {
+      console.error(`[${PLUGIN_SOURCE}] runtime_files 清理没跑完（${options.python} 退出码 `
+        + `${result.code}，不影响本轮观察）：${firstLine(result.stderr)}`)
+      return undefined
+    }
+    const removed = parseCleanupReport(result.stdout)
+    if (removed === undefined) {
+      console.error(`[${PLUGIN_SOURCE}] runtime_files 清理的输出解析不了（不影响本轮观察）：`
+        + firstLine(result.stdout))
+      return undefined
+    }
+    const total = Object.values(removed).reduce((sum, count) => sum + count, 0)
+    if (total > 0) {
+      const detail = Object.entries(removed).map(([label, count]) => `${label} ${count}`).join(' / ')
+      console.error(`[${PLUGIN_SOURCE}] runtime_files 清理：删了 ${detail}`)
+    }
+    return { removed }
+  } catch (error: unknown) {
+    // 兜住这条链上的意外（spawn 参数非法之类）。本函数是旁路副作用：不许让任何异常逃到
+    // tick() 的 try 里去顶掉一轮观察。
+    console.error(`[${PLUGIN_SOURCE}] runtime_files 清理出异常（不影响本轮观察）：`, error)
+    return undefined
+  }
+}
+
+/** 一段诊断文字压成一行：取第一段非空行，免得把整份 stderr 灌进日志。 */
+function firstLine(text: string): string {
+  const line = text.split('\n').find(part => part.trim() !== '')
+  return line === undefined ? '' : line.trim()
+}
+
+/**
+ * 解析 `--json` 的输出：`{ dirs: { <目录名>: { removed: [...] } } }` → 各目录删了几个。
+ *
+ * 这是**进程边界**（另一种语言写的脚本的输出），所以逐层校验、形状不对就返回 `undefined`
+ * 交给调用方报「解析不了」，而不是按类型断言直接用。
+ * @param stdout - 脚本的整份标准输出。
+ * @returns 目录名 → 删掉的个数；输出不是这个形状时返回 `undefined`。
+ */
+export function parseCleanupReport(stdout: string): Record<string, number> | undefined {
+  let payload: unknown
+  try {
+    payload = JSON.parse(stdout)
+  } catch {
+    // 只吞 JSON.parse 那一下：非 JSON 的输出（脚本崩在半路的 traceback 之类）由调用方报出来。
+    return undefined
+  }
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) return undefined
+  const dirs = (payload as { dirs?: unknown }).dirs
+  if (typeof dirs !== 'object' || dirs === null || Array.isArray(dirs)) return undefined
+  const removed: Record<string, number> = {}
+  for (const [label, entry] of Object.entries(dirs)) {
+    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return undefined
+    const list = (entry as { removed?: unknown }).removed
+    if (!Array.isArray(list)) return undefined
+    removed[label] = list.length
+  }
+  return removed
+}
+
 /**
  * 装配定时观察：建出本角色 agent，按 `intervalMs` 每轮读一遍观测源并交给它判断。
  *
  * 定时器在 `ctx.inject` 的服务就绪后起（`agents` 不在时连 agent 都建不出来），
- * agent 建立与首轮之间隔一个完整间隔——启动本身不产生模型请求。
+ * agent 建立与首轮之间隔一个完整间隔——启动本身不产生模型请求。首个**被处理**的观察还要
+ * 等过 `firstTickDelayMs`（见模块注释第 2 条），这段窗口内的跳一律丢掉。
  *
  * 建立失败只记一次（日志），之后每轮静默跳过：那时失败原因已经在日志里，
  * 能做的只有把它留在那儿。
  * @param ctx - registrant context。
  * @param config - 校验并落默认值后的插件配置。
- * @throws intervalMs / maxSessionBytes 不为正整数、或观测源为空（都是配置错误，装配时抛，
- * 不留到运行期）。
+ * @throws intervalMs / maxSessionBytes 不为正整数、firstTickDelayMs 不为非负整数、
+ * 或观测源为空（都是配置错误，装配时抛，不留到运行期）。
  */
 export function apply(ctx: Context, config: Config): void {
   if (!(Number.isInteger(config.intervalMs) && config.intervalMs > 0)) {
     throw new Error(`supervisor-loop: intervalMs 必须是正整数毫秒，收到 ${config.intervalMs}`)
+  }
+  if (!(Number.isInteger(config.firstTickDelayMs) && config.firstTickDelayMs >= 0)) {
+    throw new Error('supervisor-loop: firstTickDelayMs 必须是非负整数毫秒（0 = 不延迟），'
+      + `收到 ${config.firstTickDelayMs}`)
   }
   if (!(Number.isInteger(config.maxSessionBytes) && config.maxSessionBytes > 0)) {
     throw new Error(`supervisor-loop: maxSessionBytes 必须是正整数（会话日志字节数），收到 ${config.maxSessionBytes}`)
@@ -294,8 +526,22 @@ export function apply(ctx: Context, config: Config): void {
   if (config.sources.length === 0) {
     throw new Error('supervisor-loop: sources 至少要有一个观测源（否则每轮没有任何内容可判断）')
   }
+  if (config.cleanupScript === '') {
+    throw new Error('supervisor-loop: cleanupScript 不能为空（该给 Observer/cleanup.py 的绝对路径，'
+      + '来自 configs/paths.py 的 RUNTIME_CLEANUP_SCRIPT）')
+  }
+  // 路径由 paths.py 推导，取不到只可能是仓库/过桥坏了——那要在这儿就炸，而不是等每轮静默失败。
+  if (!existsSync(config.cleanupScript)) {
+    throw new Error(`supervisor-loop: cleanupScript 指向的文件不存在：${config.cleanupScript}`
+      + ' —— 查 configs/paths.py 的 RUNTIME_CLEANUP_SCRIPT 与 scripts/role-daemon.sh 的过桥')
+  }
+  // 路由覆盖归一化：未配 / 只配了空白都当「不覆盖」（与 rolebus 的 resident 同一处理）。
+  const modelProvider = config.modelProvider?.trim() ?? ''
   const sessionId = brandString<SessionId>(config.sessionId)
   const label = intervalLabel(config.intervalMs)
+  // 首轮的门槛时刻：**装配时刻**（不是 agent 建好那一刻）起算。agent 建立通常只要几十毫秒，
+  // 但建失败时会一直被重试——那时这个门槛早已过去，恢复后的第一跳就该照常跑，不必再等。
+  const firstTickReadyAt = Date.now() + config.firstTickDelayMs
 
   ctx.inject(['agents', 'agentDefaultModel', 'sessionPersistence'], injected => {
     let disposed = false
@@ -304,7 +550,7 @@ export function apply(ctx: Context, config: Config): void {
     /** 整轮互斥：`status` 只挡「模型在跑」，挡不住 stat 未回、create/dispose 的窗口。 */
     let ticking = false
 
-    const startup: Promise<LoopStartup | undefined> = openLoopAgent(injected, sessionId)
+    const startup: Promise<LoopStartup | undefined> = openLoopAgent(injected, sessionId, modelProvider)
       .then((opened) => {
         // 卸载发生在建立完成之前：agent 已经建出来了，必须由这次建立自己拆掉。
         if (disposed) {
@@ -337,7 +583,7 @@ export function apply(ctx: Context, config: Config): void {
       if (outgoing === undefined || !outgoing.owned) return
       const outgoingId = outgoing.agent.session.id
       const sizeBytes = (await injected.sessionPersistence.stat(outgoingId))?.sizeBytes
-      const created = await createRotationAgent(injected, config.sessionId)
+      const created = await createRotationAgent(injected, config.sessionId, modelProvider)
       // 卸载发生在轮转中途：新 agent 已经建出来了，由这里自己拆（同 startup 分支的处理）。
       if (disposed) {
         void created.dispose()
@@ -356,8 +602,14 @@ export function apply(ctx: Context, config: Config): void {
 
     const tick = async (): Promise<void> => {
       if (ticking) return
+      // 首轮门槛：还没到就丢这一跳（与「上一轮没跑完」同款，不打日志）。放在 ticking 之前，
+      // 免得把 ticking 白占一瞬。
+      if (Date.now() < firstTickReadyAt) return
       ticking = true
       try {
+        // 每轮顺手清一次 runtime_files/（模块注释第 5 条）：旁路、不 await、不改本轮的观测输入。
+        // 摆在 startup 之前是为了**模型侧建不起来时清理照跑**——目录长胖跟模型在不在没关系。
+        void runCleanup({ python: config.python, script: config.cleanupScript })
         // 建立还没完成时排在建立 promise 的 .then 队列里，保持 FIFO。
         await startup
         const active = current

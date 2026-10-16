@@ -2,29 +2,46 @@
 #
 # 安装脚本把它写入 $DSH_HOME/profiles/interactor/cordis.patch.yml。语义（与引擎一致）：
 # 这是 profile 层，位于 bundle 层（@deepseek-ai/dsh-base、@embody/dsh-rolebus、
-# @embody/dsh-tools-bridge）之后，对已插入的行按 id 整块替换 config，后面的层胜出。
+# @embody/dsh-tools-bridge、@embody/dsh-location-context、@embody/dsh-speech-stream、
+# @embody/dsh-file-guard）之后，对已插入的行按 id 整块替换 config，后面的层胜出。
 # 因此本行的人设字段（system-prompt 只认 personaPrefix / personaSuffix，没有 persona）
 # 与 rolebus 身份都必须整块重写，不是逐键合并。整块替换会把 @deepseek-ai/dsh-headless
 # 层写的 personaPrefix / personaSuffix 一并顶掉，要保留就只能在下面自己写上。
 #
-# 本角色可见工具清单见同目录 tools.md。要点：
-#   - 原生工具只保留清单内的行；清单外的工具行在此 disabled（见文件末尾）。
-#   - 自定义工具（清单在 configs/agent_plugin.py 的 INTERACTOR_TOOLS）由 tools-bridge 行
-#     注册，见下方说明。
+# 工具面分两层，各自的清单不在本文件里：
+#   - 原生工具只保留用得上的行；其余行在此 disabled（见文件末尾）。
+#   - 自定义工具清单是 configs/agents.py 的 INTERACTOR_TOOLS（描述文本在
+#     plugin_tools/available_tools.yaml），由下面的 tools-bridge 行注册。
+# 两层合起来是**可调用面**；模型那一轮**看到什么**由呈现模式决定，本角色是 native（见下方
+# 「工具呈现模式」一节）：两张清单里的工具都由模型按名直接调用。
 #
-# 角色职责边界见 reference/events.md 与 Interactor/interaction_agent_implementation_v2.md。
+# 角色职责边界见 reference/events.md 与 reference/agents/interaction_agent_implementation_v2.md。
 
-# 人设文本不内联在 YAML 里，从 Interactor/prompts/interacter_prompt.md 读：
+# 人设文本不内联在 YAML 里，从 Interactor/prompts/ 整目录读：interacter_prompt.md
+# 打头，其余 .md 按文件名序（confidence.md → constraints.md）以 `---` 分隔符接在后面
+# （与其余三个角色同一做法）。**加文档 = 往那个目录里放文件**，本行不用改；目录里的
+# 文档全部进上下文（没有"只放不读"的名录）。
 #   - `!!js` 是 Loader 的配置表达式（见 docs/cordis-primer），在装载本行时求值一次；
-#     `getBuiltinModule` 是在 ESM 函数体里同步拿到 node 内建模块的方式（无 require）。
+#     求值方式是对表达式做 `eval`（vendor/loader/src/config/utils.ts），所以可以是一段
+#     立即执行的箭头函数。`>-` 折叠块把它写成多行，折行时按空格拼接，故语句必须带分号。
+#   - `getBuiltinModule` 是在 ESM 函数体里同步拿到 node 内建模块的方式（无 require）。
 #   - 路径相对引擎根（= 启动 dsh 时的工作目录）；所以必须从引擎根启动，比如
-#     scripts/interactor-daemon.sh。
+#     scripts/role-daemon.sh --role interactor。
 #   - 文件缺失即 ENOENT 启动失败（fail loud），不会静默退化成空人设。
 - id: system-prompt
   config:
     # 关掉引擎硬编码的 harness:identity 首句（否则它会拼在人设前面）。
     includeHarnessIdentity: false
-    personaPrefix: !!js process.getBuiltinModule('node:fs').readFileSync('embody/Interactor/prompts/interacter_prompt.md', 'utf8').trim()
+    personaPrefix: !!js >-
+      (() => {
+        const fs = process.getBuiltinModule('node:fs');
+        const dir = 'embody/Interactor/prompts';
+        const persona = 'interacter_prompt.md';
+        const rest = fs.readdirSync(dir).filter(name => name.endsWith('.md') && name !== persona).sort();
+        return [persona, ...rest]
+          .map(name => fs.readFileSync(dir + '/' + name, 'utf8').trim())
+          .join('\n\n---\n\n');
+      })()
 
 - id: rolebus
   config:
@@ -34,15 +51,27 @@
       - supervisor
     transport: file
 
-# 自定义工具的注册方：装载时按 role 取 configs/agent_plugin.py 的 INTERACTOR_TOOLS 白名单
-# （speak / speak_listen），经 Python 桥逐条注册进本 profile 的工具表，调用时再经桥转发给
-# plugin_tools 的实现。role 与上面 rolebus 的 role 同值——两处都表示「本 profile 是哪个
-# 角色」，只是各自服务不同的能力（事件收发 / 工具注册）。
+# 自定义工具的注册方：装载时按 role 取 configs/agents.py 的 INTERACTOR_TOOLS 白名单
+# （清单只写在 configs/agents.py，这里不列举——列了就会跟它漂移），经 Python 桥逐条注册进
+# 本 profile 的工具表，调用时再经桥转发给 plugin_tools 的实现。role 与上面 rolebus 的 role
+# 同值——两处都表示「本 profile 是哪个角色」，只是各自服务不同的能力（事件收发 / 工具注册）。
 # python 是跑桥的解释器；桥依赖 PyYAML（plugin_tools/requirements.txt）。
 - id: tools-bridge
   config:
     role: interactor
     python: python3
+
+# 工具呈现模式：本角色用 native 模式（引擎 tools 行的 mode），即引擎缺省的那一档。
+# native 下模型直接按名调用工具：两张清单的 schema 原样进请求，一轮里要调几次就发几次
+# 工具调用，没有中间的传输工具，也没有 SDK 声明。编排器 / 规划器用 ptc（模型只看到
+# run_code 加一份由已注册工具生成的 SDK），本角色不用——一轮里的若干次调用（播报 /
+# 收音 / 发事件 / 读写待做清单）就是这一轮里的若干次工具调用，先后顺序即调用顺序
+# （见 prompts/ 的「工具使用顺序」）。
+# ptc / both 要求已装配的 ctx.codeRuntime 且其语言有 SDK 渲染器，native 不要求，故这里
+# 也不插 code-runtime 行（base bundle 本就只有 headless / web-app 两个 shipped 组合挂它）。
+- id: tools
+  config:
+    mode: native
 
 # 工作区指令（AGENTS.md / CLAUDE.md 等）不拼进上下文：角色人设的唯一来源是本 profile
 # 里的人设文件，不让仓库里随手放的 AGENTS.md 混进来（见 agent-instructions 的
@@ -50,7 +79,8 @@
 - id: agent-instructions
   disabled: true
 
-# 原生工具：显式禁用本角色不该用（或根本用不了）的工具。
+# 原生工具：显式禁用本角色不该用（或根本用不了）的工具。**呈现模式不改这份裁剪**：disabled
+# 的行不装载、不注册，模型那一轮里也就没有它——换的是呈现面，不是可调用面。
 - id: user-questions
   disabled: true
 - id: tool-subagent
@@ -67,3 +97,128 @@
   disabled: true
 - id: tool-todo
   disabled: true
+
+# 命令行类工具（bash / pwsh）对本角色整个关闭。**2026-10-13 用户定的规矩**：交互器 / 编排器 /
+# 监督器 / planner 四个角色不许用命令行类工具读写项目根（<引擎根>/embody）下的文件，唯一例外
+# 是 runtime_files；plugin_tools/available_tools.yaml 里的那些工具不在这条规矩里（它们是角色的
+# 正业，各自按需要碰文件，走 Python 侧自己的路）。
+# 命令行挡在**整个工具**这一档，不是「按路径放行」：命令文里的路径没法逐条判（管道、重定向、
+# `python3 -c`、变量拼出来的路径都能绕过路径检查）。所以那一轮里根本没有 bash，模型也就没有
+# 「绕过路径检查去读文件」的入口。
+#
+# 这是围栏的第一道（可调用面的裁剪）。第二道是 dsh-plugins/file-guard（本文件末尾那行）：
+# 它按路径判 fs 家族（read / write / edit / read_image / glob / grep），并且**把这两个名字再拒
+# 一次**。两道都要，因为挡的不是同一件事——这一行是「本角色没有命令行」，那一句是「就算这一行
+# 哪天被改回来，也不许用」。改其中一道别忘了另一道。
+#
+# 代价（明写）：本角色的「现在几点」原本靠 `date +%Y-%m-%dT%H:%M:%S%:z`，没有命令行之后改用
+# robot_state 的 system 段（见 prompts/task_policy.md 的定时任务一节）。
+- id: tool-bash
+  disabled: true
+- id: tool-pwsh
+  disabled: true
+
+# 联网检索（web_search）不给本角色：本角色的搜索走人设里那条路（按关键词拼百度 URL，
+# 再用 web_fetch 读页面，见 prompts/task_policy.md），web_search 是那条路之外的另一条
+# 通道——一次独立的辅助模型请求，且与网页抓取共用工具位却各有各的用法。工具不在工具表
+# 里，模型那一轮里既看不到、也调不了。
+#
+# 关的是 tool-web 这一行的 `search` 开关（它登记 web_search），**不关 web_fetch**：
+# 人设要用它，且它走的是另一条路（http provider），与本开关无关。
+# 整块替换（profile 层不逐键合并）意味着本块就是 tool-web 的全部 config：故这里不重复写
+# `fetch`，取 schema 缺省 true —— 与 base bundle 那一行同值。
+- id: tool-web
+  config:
+    search: false
+
+# 定时任务（用户任务的到点触发）：给本角色装上引擎的提醒插件，注册 schedule_create /
+# schedule_list / schedule_delete。到点不靠谁轮询——提醒写在**会话日志**里，到点后以一条普通
+# 的 follow-up 用户消息把本角色叫醒（首行 `[SCHEDULE REMINDER]`，后面带 schedule_id /
+# occurrence_at / reminder_prompt），不打断正在跑的一轮。所以只要本行在 boot 期插上、常驻
+# agent 建在它之后就行。插在 profile 层（host 平面）而不是常驻叠加层：定时是**角色能力**，
+# 不是启动形态（一次性试跑拿到这三个工具也无害）。
+#
+# 只给交互器：它是唯一对用户说话、也是唯一被分派「提醒」类任务的角色（见
+# prompts/interacter_prompt.md 的任务分派）。其余三个角色不装——编排器要用户配合是发
+# interaction_request，不是自己定时。
+#
+# 提醒的持久性有一条前提：记录在会话日志里，会话被归档就等于提醒没了。交互器在
+# configs/agents.py 的 RESET_ON_START_ROLES 里，每次拉起前上一轮会话整份挪进
+# $DSH_HOME/session-archive/（scripts/role-daemon.sh 的 reset_role_history）——引擎按新会话
+# 起来，ScheduleRuntime.start() 驱动的是空表，**未到点的提醒不会跨重启存活**（归档件里还查得到
+# 那条记录）。要让它跨重启：把 interactor 从那张表里去掉，代价是每轮的交互上下文会续接上一轮。
+#
+# 不连 time-context 一起挂（引擎的 web overlay 是这两行成对）：机器人时区固定，而
+# time-context 在拿不到浏览器时区时会指示模型「请用户澄清时区」，与本角色「一律按本地时间
+# 理解、不追问时区」冲突。绝对时间点要的「现在几点」取 robot_state 的 system 段
+# （updated_at，最旧不超过 STATUS_WRITE_INTERVAL），见 prompts/task_policy.md 的定时任务
+# 一节 —— 本角色没有命令行（见上面 tool-bash 那段）。
+- insert:
+    - id: schedule
+      name: '@deepseek-ai/dsh-schedule'
+
+# 流式播报（@embody/dsh-speech-stream）：把 speak / speak_listen / speak_input 的 text 参数
+# **边生成边送 TTS**，首句出声从「整段生成完 + 派发 + 调服务」提前到「第一句生成完」。
+#   - 它只认这三个工具的参数，**模型正文一个字都不播**：交互器的思考留在正文里。
+#   - 插件与工具的分工：插件定「哪一句、什么时候送」并留一份「已经播到第几个字」的
+#     记录，工具（plugin_tools/audio_tools.py）按记录去重、只补没播过的那截；没有记录
+#     （插件没装载 / 刚重启 / 记录过期）就照老路整段播。**所以关掉这一行 = 回到今天的全部
+#     行为**，工具侧没有任何模式分支。
+#   - 插件送出的每一句都**不抢麦**（`play_now=false`）：轮次号是唤醒计数而不是「用户的一轮」，
+#     按它打断会把上一段话切在半句上。交下一句的时机由 configs 的 SPEECH_DELIVERY_MODE 定
+#     （serial=等这一句播完再交，默认 —— 设备没有队列，受理即交会让后一句掐断前一句）。
+#   - 逐句不再起进程：默认走常驻 TTS 服务（TTS_Manager/tts_service.py --serve，unix socket），
+#     连不上就整体退回逐句 spawn（见 dsh-plugins/speech-stream/src/tts.ts）。
+#   - 开关在 configs/agents.py 的 SPEECH_STREAM_ENABLED（与逐角色思考开关同一节），阈值与
+#     deliveryMode 在 configs/configs.py：各自一处事实源。三者都经
+#     scripts/role-daemon.sh 的 interactor 支取值后过桥进进程环境，`!!js` 在装载本行时求值
+#     一次（见 docs/cordis-primer）。
+# bundle 层插的是 disabled: true（流式播报是部署形态，不是插件自身的行为），打开它的地方只有
+# 这里——与 dsh-plugins/speech-stream/cordis.patch.yml 的注释成对。
+#
+# **按 id 覆盖，不再 insert 一行**：bundle 层已经插过同 id 的行，两个 insert 会让 Loader 报
+# `duplicate loader entry id: speech-stream` 而整个角色起不来（实测）。与 Supervisor/resident.patch.yml
+# 打开 supervisor-loop 的写法一致：那里也是「bundle 插中性行，这里按 id 给 disabled 与 config」。
+- id: speech-stream
+  disabled: !!js process.env.SPEECH_STREAM_ENABLED !== '1'
+  config:
+    maxCharsPerChunk: !!js Number(process.env.SPEECH_MAX_CHARS_PER_CHUNK)
+    deliveryMode: !!js process.env.SPEECH_DELIVERY_MODE
+
+# 【支持地点清单】每轮注入（@embody/dsh-location-context）：注册 `agent/pre-step` 的前置监听器，
+# 在**每一轮的第一步**把清单插在唤醒消息之前（与编排器那行 task-context 同一手法）。
+#
+# 为什么本角色要它：人设里对这份清单的用法（prompts/info_policy.md 的「检查任务地点是否在
+# 【支持地点清单】中」）要求手上真有清单，而本角色的工具白名单里没有 waypoint_nav
+# （configs/agents.py）——那份清单进上下文的另一条路是那个工具自己的说明。每轮重发而不是只在
+# 会话首轮：上下文被压缩后模型仍要看到它，而它是**本轮判断的输入**，不是「变了才通知」的增量。
+#
+# list 的正文由 configs/configs.py 的 supported_locations_text() 渲染（名字仍只由
+# load_supported_locations() 抽取），经 scripts/role-daemon.sh 的 interactor 支过桥进进程环境，
+# `!!js` 在装载本行时求值一次。**启动时取一次是刻意的**：waypoint_nav 的工具说明（装载时注入）也
+# 是这个新鲜度，两条路不同步会出现「清单里有、调它却被硬拒」的窗口期；代价是 landmarks.json 改了
+# 要重起本角色。取不到（变量没设置）在装载时报 missing required value —— 不编默认值。
+# bundle 层插的是 disabled: true，打开它的地方只有这里；**按 id 覆盖，不再 insert 一行**（profile
+# 层与 bundle 层各 insert 一次会让 Loader 报 duplicate loader entry id，见上面 speech-stream 那段）。
+- id: location-context
+  disabled: false
+  config:
+    list: !!js process.env.INTERACTOR_SUPPORTED_LOCATIONS
+
+# 文件围栏（@embody/dsh-file-guard）：按路径判 fs 家族，并把命令行工具名（bash / pwsh）再拒
+# 一次。规矩与上面 tool-bash / tool-pwsh 那两行同源（2026-10-13 用户定），那一段讲了两道的关系；
+# 这一行是第二道的装配处。
+#
+# allowedRoot 从进程环境来：configs/paths.py 的 RUNTIME_DIR，由 scripts/role-daemon.sh
+# **无条件**过桥成 ROLE_FILE_GUARD_ALLOWED_ROOTS。四个角色取的是同一个值 —— 围栏是这四个
+# 「能跟用户 / 云端说话的角色」共同的身份边界，不是某个角色的特征。本机临时目录
+# （/tmp、os.tmpdir()）由插件自己加上、不过桥（与引擎沙箱的 writableRoots 同一口径）。
+#
+# bundle 层插的是 disabled: true（可读写的根是部署值，bundle 给不出），打开它的地方只有各
+# profile 这里；**按 id 覆盖，不再 insert 一行**（两个 insert 会让 Loader 报 duplicate loader
+# entry id，见上面 speech-stream 那段）。取不到那个变量在装载时报 missing required value（插件
+# 的 apply 另判空串）—— 不编默认值。
+- id: file-guard
+  disabled: false
+  config:
+    allowedRoot: !!js process.env.ROLE_FILE_GUARD_ALLOWED_ROOTS

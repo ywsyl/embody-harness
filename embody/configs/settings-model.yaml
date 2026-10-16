@@ -1,9 +1,9 @@
 # 模型覆盖模板（dsh 官方 settings 文档通道）——把 LOCAL 端点接成默认模型。
 #
-# 这不是最终的 settings.yaml：scripts/settings-seed.sh 读取 configs/exp.bashrc 的
-# LOCAL_BASE_URL / LOCAL_MODEL_ds（LOCAL_DEVICE_ID 可选，缺省 device_00123555），
-# 展开下面的 {{…}} 占位符后写入 $DSH_HOME/settings.yaml；目标文件已存在时按顶层
-# 命名空间合并（只替换 llm-pi-ai / agent-default-model，保留 ui-* 等其余段落）。
+# 这不是最终的 settings.yaml：scripts/settings-seed.sh 读取 install/secret.env 的
+# LOCAL_BASE_URL / LOCAL_MODEL_ds，{{DEVICE_ID}} 则取 configs/paths.py 的 DEVICE_ID
+# （设备配置文件的 factory/devSn），展开下面的 {{…}} 占位符后写入 $DSH_HOME/settings.yaml；
+# 目标文件已存在时按顶层命名空间合并（只替换 llm-pi-ai / agent-default-model，保留 ui-* 等其余段落）。
 #
 # apiKeyEnv 只写“环境变量名”LOCAL_API_KEY：真实密钥由 credentials-local 从启动环境
 # （或 $DSH_HOME/.credentials.yaml）按需解析，永不进入本文件，因此本模板可入库。
@@ -20,7 +20,7 @@ llm-pi-ai:
       api: openai-completions
       baseURL: "{{LOCAL_BASE_URL}}"
       headers:
-        X-Device-ID: "{{LOCAL_DEVICE_ID}}"
+        X-Device-ID: "{{DEVICE_ID}}"
         X-Request-ID: "embody-model-task"
       models:
         - id: "{{LOCAL_MODEL_ds}}"
@@ -28,6 +28,43 @@ llm-pi-ai:
           contextWindow: 1000000
           input:
             - text
+      apiKeyEnv: LOCAL_API_KEY
+
+    # 与 robot-gateway 同一条端点、同一把密钥、同一个模型 id；唯一的差别是本路由声明了推理档位。
+    # 于是「不选档位」在线上表达为 thinking:{type:"disabled"}（pi-ai 的 deepseek 形态，见
+    # packages/llm/llm-pi-ai/src/adapter.ts 与 pi-ai 的 openai-completions），而 robot-gateway
+    # 不带推理元数据时一个 thinking 参数都不发、由网关取自己的默认（思考开着）。
+    # 两条必须分开声明：给 robot-gateway 加元数据会把走它的角色的思考也一起关掉。
+    # 「哪个角色的思考关着」由 configs/agents.py 的 ROLE_THINKING 决定，经 scripts/role-daemon.sh
+    # 过桥成 ROLE_MODEL_PROVIDER，再由各角色的常驻叠加层消费：交互器 / 编排器 / planner 在
+    # rolebus 的 modelProvider 上（见各自 resident.patch.yml），监督器在 supervisor-loop 的
+    # 同名字段上（它的 agent 不由 rolebus 建）。该表当前四个角色全关。
+    robot-gateway-nothink:
+      displayName: Robot Gateway (thinking off)
+      api: openai-completions
+      baseURL: "{{LOCAL_BASE_URL}}"
+      headers:
+        X-Device-ID: "{{DEVICE_ID}}"
+        X-Request-ID: "embody-model-task"
+      compat:
+        thinkingFormat: deepseek
+      models:
+        - id: "{{LOCAL_MODEL_ds}}"
+          name: "{{LOCAL_MODEL_ds}}"
+          contextWindow: 1000000
+          input:
+            - text
+          # off 必须是显式的一行空值：它让 level map 里 off 保持「未声明」，而不选档位时
+          # pi-ai 正是据此发出 thinking 的关闭值；漏掉这行思考关不掉。其余档位取网关实测
+          # 接受的那五个（low/medium/high/xhigh/max，reasoning_effort 传别的值 400），
+          # 声明成别的集合会把真实可用的档位标成不支持。
+          reasoningEfforts:
+            off:
+            low: low
+            medium: medium
+            high: high
+            xhigh: xhigh
+            max: max
       apiKeyEnv: LOCAL_API_KEY
 
 agent-default-model:

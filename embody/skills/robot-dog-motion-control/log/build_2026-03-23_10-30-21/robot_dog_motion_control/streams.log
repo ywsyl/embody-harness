@@ -1,0 +1,29 @@
+[0.027s] Invoking command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/foxy /usr/bin/cmake --build /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control -- -j8 -l8
+[0.125s] [ 50%] Built target client
+[0.184s] [100%] Built target server
+[0.209s] Invoked command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/foxy /usr/bin/cmake --build /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control -- -j8 -l8
+[0.265s] Invoking command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/foxy /usr/bin/cmake --install /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control
+[0.284s] -- Install configuration: ""
+[0.285s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/server
+[0.286s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/client
+[0.287s] -- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/start.sh
+[0.287s] -- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/motion.sh
+[0.288s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/test.sh
+[0.288s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/auto_avoid.sh
+[0.288s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/lib/robot_dog_motion_control/auto_explore.sh
+[0.289s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/ament_index/resource_index/package_run_dependencies/robot_dog_motion_control
+[0.290s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/ament_index/resource_index/parent_prefix_path/robot_dog_motion_control
+[0.290s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/ament_prefix_path.sh
+[0.290s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/ament_prefix_path.dsv
+[0.290s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/path.sh
+[0.290s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/environment/path.dsv
+[0.290s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.bash
+[0.290s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.sh
+[0.292s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.zsh
+[0.292s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/local_setup.dsv
+[0.293s] -- Installing: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.dsv
+[0.293s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/ament_index/resource_index/packages/robot_dog_motion_control
+[0.297s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/cmake/robot_dog_motion_controlConfig.cmake
+[0.298s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/cmake/robot_dog_motion_controlConfig-version.cmake
+[0.299s] -- Up-to-date: /root/cmcc_agent/skills/robot-dog-motion-control/install/robot_dog_motion_control/share/robot_dog_motion_control/package.xml
+[0.301s] Invoked command in '/root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/foxy /usr/bin/cmake --install /root/cmcc_agent/skills/robot-dog-motion-control/build/robot_dog_motion_control

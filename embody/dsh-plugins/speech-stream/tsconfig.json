@@ -1,0 +1,30 @@
+{
+  // speech-stream 与 ../supervisor-loop 同形：引擎图外的叶子项目。引擎依赖
+  // （@deepseek-ai/cordis、schemastery、dsh-agent）经 tsconfig.base.json 的 `paths` 解析到
+  // 各包 src，本文件用 `references` 声明这些 src 归属的编译项目，`tsc -b` 会先按各包自身
+  // tsconfig 构建出 d.ts，再对本包校验——产物 lib/ 已被 .gitignore 忽略。
+  // 引用列表 = 本包真正 import 的包：cordis / schemastery（vendor）、agent（帧类型在哪，
+  // 事件 `agent/assistant-stream` 的声明合并也在那）、llm（帧里的 StreamChunk 出自这里）。
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "../../../vendor/cordis"
+    },
+    {
+      "path": "../../../vendor/schemastery"
+    },
+    {
+      "path": "../../../packages/core/agent"
+    },
+    {
+      "path": "../../../packages/llm/llm"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# @embody/dsh-file-guard —— 角色文件围栏 bundle 补丁。
+#
+# 分层语义（与引擎一致）：每个 bundle 的 cordis.patch.yml 是一层，后面各层按行(id)整块替换
+# 它的键。本层只负责「插入 file-guard 行」，**值是关着的**（disabled: true）：
+#
+#   项目内让读写哪一棵目录由 `allowedRoot` 决定，而那是部署值——configs/paths.py 的 RUNTIME_DIR
+#   经 scripts/role-daemon.sh 过桥成进程环境，这一层给不出来。关着的行不会被装载，因此**不打**
+#   下面这份 config 的 schema 校验；真正生效的那四份在 Interactor / Orchestrator / Planner /
+#   Supervisor 各自的 cordis.patch.yml（profile 层，`disabled: false` + 取环境变量的
+#   allowedRoot）。两处必须一致：本层插的行与 profile 层覆盖的行是同一个 id。
+#
+# 四个角色都装（scripts/rolebus-setup.sh 里无条件 ensure_bundle）：围栏不是某个角色的特征，
+# 而是这四个「能跟用户/云端说话的角色」共同的身份边界。监督器的原生命令与文件工具本就全关着
+# （2026-10-12 的精简），它这一行是**第二道**——那一批 disabled 行哪天被改回来，围栏照样在。
+
+- insert:
+    - id: file-guard
+      name: '@embody/dsh-file-guard'
+      disabled: true

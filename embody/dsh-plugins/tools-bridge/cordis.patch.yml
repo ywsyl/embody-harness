@@ -8,7 +8,7 @@
 #
 # config 的两项：
 #   - role   本 profile 的角色身份，与 @embody/dsh-rolebus 的 role 同值。它决定用
-#            configs/agent_plugin.py 的哪份白名单；unset 表示“尚未被 profile 赋予身份”，
+#            configs/agents.py 的哪份白名单；unset 表示“尚未被 profile 赋予身份”，
 #            此时本插件不注册任何工具（也不会去起 Python 桥）。
 #   - python 跑 Python 桥的解释器（桥依赖 PyYAML，见 plugin_tools/requirements.txt）。
 
